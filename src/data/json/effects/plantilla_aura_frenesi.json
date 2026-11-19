@@ -1,0 +1,28 @@
+{
+  "id": "plantilla_aura_frenesi",
+  "engineMode": "declarative",
+  "isTemplate": true,
+  "category": "aura",
+  "kind": "custom_ally_buff",
+  "name": "Plantilla: Aura de Frenesí 3x3",
+  "description": "Aumenta +35% la velocidad/cadencia y +20% el daño de aliados en un área de 3x3.",
+  "trigger": "continuous_aura",
+  "targetSide": "allies",
+  "areaShape": "square",
+  "radiusCells": 1,
+  "excludeSelf": true,
+  "color": "#F97316",
+  "badgeLabel": "FRENESÍ",
+  "badgeTextColor": "#FFEDD5",
+  "modifiers": {
+    "speedMultiplier": 1.35,
+    "fireRateMultiplier": 1.35,
+    "damageMultiplier": 1.2
+  },
+  "visual": {
+    "showZone": true,
+    "zoneRgb": "249, 115, 22",
+    "zoneStroke": "rgba(251, 146, 60, 0.65)",
+    "targetTintColor": "rgba(249, 115, 22, 0.78)"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "impact_psionic",
+  "name": "Impacto Psiónico",
+  "description": "Estrellas y distorsión violeta sobre el enemigo.",
+  "category": "impact",
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#A855F7",
+        "#818CF8"
+      ],
+      "count": 1,
+      "durationSec": 0.32,
+      "sizePx": 8,
+      "ringExpandPx": 26,
+      "strokeWidth": 2.2,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "star",
+      "colors": [
+        "#C084FC",
+        "#818CF8",
+        "#FFFFFF"
+      ],
+      "count": 7,
+      "durationSec": [
+        0.22,
+        0.38
+      ],
+      "sizePx": [
+        3,
+        5
+      ],
+      "sizeEndScale": 0.15,
+      "speedPx": [
+        45,
+        105
+      ],
+      "spreadDeg": 360,
+      "spinDegPerSec": [
+        -260,
+        260
+      ],
+      "blendMode": "lighter"
+    }
+  ]
+}

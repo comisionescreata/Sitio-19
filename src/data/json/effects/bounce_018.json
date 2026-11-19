@@ -1,0 +1,24 @@
+{
+  "id": "bounce_018",
+  "engineMode": "builtin",
+  "category": "combat",
+  "kind": "accel_instakill",
+  "name": "Rebote Cinético (SCP-018)",
+  "description": "Pelota de 50 de vida que acelera continuamente por su fila; al impactar con cualquier torre la destruye al instante y desaparece.",
+  "trigger": "on_attack",
+  "targetSide": "towers",
+  "areaShape": "single",
+  "accelPerSec": 0.28,
+  "maxSpeed": 3.4,
+  "color": "#EF4444",
+  "badgeLabel": "INSTAKILL",
+  "modifiers": {
+    "instakill": true,
+    "disappearOnHit": true
+  },
+  "visual": {
+    "waveKind": "bounce_impact",
+    "floatingText": "¡IMPACTO 018!",
+    "floatingTextColor": "#EF4444"
+  }
+}

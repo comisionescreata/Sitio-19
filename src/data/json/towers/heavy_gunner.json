@@ -1,0 +1,16 @@
+{
+  "type": "heavy_gunner",
+  "name": "Artillero Pesado",
+  "category": "personal",
+  "cost": 250,
+  "cooldown": 9,
+  "maxHp": 290,
+  "unlockLevel": 23,
+  "roleLabel": "Ráfaga x3 · 34",
+  "description": "Personal de apoyo pesado con ametralladora rotativa. Dispara ráfagas triples ideales contra jarrones SCP-019 y SCP-079.",
+  "fireRate": 1.35,
+  "damage": 34,
+  "burstCount": 3,
+  "projectileKind": "heavy",
+  "canBeHypnotized": true
+}

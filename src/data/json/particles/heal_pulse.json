@@ -1,0 +1,35 @@
+{
+  "id": "heal_pulse",
+  "name": "Pulso de Curación / Reparación",
+  "description": "Cruces esmeralda ascendentes y aura suave al restaurar salud.",
+  "category": "aura",
+  "emitters": [
+    {
+      "shape": "cross",
+      "colors": [
+        "#10B981",
+        "#34D399",
+        "#A7F3D0"
+      ],
+      "count": 7,
+      "durationSec": [
+        0.45,
+        0.7
+      ],
+      "sizePx": [
+        4,
+        6.5
+      ],
+      "sizeEndScale": 0.5,
+      "speedPx": [
+        24,
+        52
+      ],
+      "angleDeg": -90,
+      "spreadDeg": 70,
+      "gravityPx": -18,
+      "spawnRadiusPx": 22,
+      "blendMode": "lighter"
+    }
+  ]
+}

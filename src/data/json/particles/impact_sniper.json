@@ -1,0 +1,34 @@
+{
+  "id": "impact_sniper",
+  "name": "Impacto Perforante",
+  "description": "Chispas críticas de salida al perforar un objetivo.",
+  "category": "impact",
+  "emitters": [
+    {
+      "shape": "spark",
+      "colors": [
+        "#FFFFFF",
+        "#38BDF8",
+        "#FDE047"
+      ],
+      "count": 10,
+      "durationSec": [
+        0.18,
+        0.32
+      ],
+      "sizePx": [
+        2.5,
+        4
+      ],
+      "sizeEndScale": 0.1,
+      "speedPx": [
+        90,
+        190
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 50,
+      "drag": 3.2,
+      "blendMode": "lighter"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "pocket_106",
+  "engineMode": "builtin",
+  "category": "trigger",
+  "kind": "pocket_dimension",
+  "name": "Dimensión de Bolsillo (SCP-106)",
+  "description": "SCP-106 mata al instante. Un Personal humano tiene 10% de probabilidad de volver tras 5–10s con 20% de vida e inmunidad psicológica (966/035). En su fila, SCP-173 solo salta cada 5s.",
+  "trigger": "on_kill",
+  "targetSide": "towers",
+  "targetCategories": [
+    "personal"
+  ],
+  "areaShape": "single",
+  "reviveChance": 0.1,
+  "reviveHpPercent": 0.2,
+  "minDelaySec": 5,
+  "maxDelaySec": 10,
+  "color": "#B45309",
+  "badgeLabel": "INMUNE",
+  "modifiers": {
+    "instakill": true,
+    "immuneToPsych": true
+  },
+  "visual": {
+    "waveKind": "pocket_portal",
+    "floatingText": "INSTAKILL",
+    "floatingTextColor": "#F59E0B",
+    "sound": "portal"
+  }
+}

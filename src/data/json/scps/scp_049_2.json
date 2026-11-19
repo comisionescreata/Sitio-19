@@ -1,0 +1,18 @@
+{
+  "type": "scp_049_2",
+  "code": "SCP-049-2",
+  "name": "Instancia Curada",
+  "classification": "Euclid · Convertido por 049",
+  "hp": 175,
+  "speed": 0.27,
+  "dps": 28,
+  "scoreValue": 35,
+  "portrait": "/src/assets/images/Scp_0492.webp",
+  "summary": "Creado cuando SCP-049 elimina una torre. Igual que SCP-008, pero con 25% más de vida y daño.",
+  "tacticalNote": "Evita que SCP-049 llegue cuerpo a cuerpo a tus estructuras o personal.",
+  "effects": [],
+  "isSummon": true,
+  "behavior": {
+    "laneSpan": 1
+  }
+}

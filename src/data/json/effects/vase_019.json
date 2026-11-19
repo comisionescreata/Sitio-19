@@ -1,0 +1,18 @@
+{
+  "id": "vase_019",
+  "engineMode": "builtin",
+  "category": "summon",
+  "kind": "summoner",
+  "name": "Eclosión de SCP-019",
+  "description": "El jarrón de 800 de vida genera un SCP-019-2 rápido cada 3 segundos hasta ser destruido.",
+  "trigger": "periodic",
+  "targetSide": "self",
+  "areaShape": "self",
+  "spawnIntervalSec": 3,
+  "color": "#D97706",
+  "modifiers": {
+    "spawnType": "scp_019_2",
+    "spawnCount": 1,
+    "spawnOffsetCol": -0.25
+  }
+}

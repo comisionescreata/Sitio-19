@@ -1,0 +1,13 @@
+{
+  "type": "generator",
+  "name": "Generador Auxiliar",
+  "category": "estructura",
+  "cost": 125,
+  "cooldown": 9,
+  "maxHp": 360,
+  "unlockLevel": 6,
+  "roleLabel": "+50 Energía",
+  "description": "Estructura resistente que produce +50 de energía cada 11.5s.",
+  "energyAmount": 50,
+  "energyInterval": 11.5
+}

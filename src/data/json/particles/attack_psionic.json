@@ -1,0 +1,40 @@
+{
+  "id": "attack_psionic",
+  "name": "Pulso Psiónico",
+  "description": "Estrellas violeta-índigo y anillo etéreo en cada descarga psíquica.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "star",
+      "colors": [
+        "#A855F7",
+        "#818CF8",
+        "#E9D5FF"
+      ],
+      "count": 7,
+      "durationSec": [
+        0.22,
+        0.38
+      ],
+      "sizePx": [
+        3.5,
+        6
+      ],
+      "sizeEndScale": 0.15,
+      "speedPx": [
+        50,
+        120
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 90,
+      "spinDegPerSec": [
+        -220,
+        220
+      ],
+      "offsetX": 20,
+      "blendMode": "lighter",
+      "glowColor": "#A855F7",
+      "glowBlur": 8
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "type": "researcher",
+  "name": "Investigador",
+  "category": "personal",
+  "cost": 50,
+  "cooldown": 5,
+  "maxHp": 100,
+  "unlockLevel": 0,
+  "roleLabel": "+50 Energía",
+  "description": "Genera +50 de energía cada 7.5s",
+  "energyAmount": 50,
+  "energyInterval": 15
+}

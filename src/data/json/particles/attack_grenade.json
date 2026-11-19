@@ -1,0 +1,52 @@
+{
+  "id": "attack_grenade",
+  "name": "Lanzamiento de Granada",
+  "description": "Fogonazo de bocacha y anillo de propulsión para lanzagranadas.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(148, 163, 184, 0.65)",
+        "rgba(251, 146, 60, 0.45)"
+      ],
+      "count": 6,
+      "durationSec": [
+        0.25,
+        0.42
+      ],
+      "sizePx": [
+        6,
+        11
+      ],
+      "sizeEndScale": 2,
+      "alphaStart": 0.6,
+      "alphaEnd": 0,
+      "speedPx": [
+        45,
+        95
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 45,
+      "offsetX": 24
+    },
+    {
+      "shape": "spark",
+      "colors": [
+        "#FB923C",
+        "#FDE047"
+      ],
+      "count": 6,
+      "durationSec": 0.2,
+      "sizePx": 3,
+      "speedPx": [
+        80,
+        140
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 35,
+      "offsetX": 24,
+      "blendMode": "lighter"
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "id": "explosion_mine",
+  "name": "Detonación de Mina de Brecha",
+  "description": "Explosión táctica pesada con doble onda de choque, metralla y humo denso.",
+  "category": "explosion",
+  "screenShake": 7,
+  "screenFlashRgb": "251, 146, 60",
+  "screenFlashAlpha": 0.22,
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#F59E0B",
+        "#EF4444"
+      ],
+      "count": 1,
+      "durationSec": 0.46,
+      "sizePx": 18,
+      "ringExpandPx": 84,
+      "strokeWidth": 6,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "circle",
+      "colors": [
+        "#FFFFFF",
+        "#FEF08A",
+        "#F97316",
+        "#EF4444"
+      ],
+      "colorEnd": "#450A0A",
+      "count": 22,
+      "durationSec": [
+        0.3,
+        0.52
+      ],
+      "sizePx": [
+        5,
+        11
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        75,
+        210
+      ],
+      "spreadDeg": 360,
+      "drag": 2.6,
+      "blendMode": "lighter",
+      "glowColor": "#F97316",
+      "glowBlur": 12
+    },
+    {
+      "shape": "shard",
+      "colors": [
+        "#94A3B8",
+        "#F97316",
+        "#FDE047"
+      ],
+      "count": 16,
+      "durationSec": [
+        0.35,
+        0.62
+      ],
+      "sizePx": [
+        3.5,
+        6.5
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        110,
+        250
+      ],
+      "angleDeg": -90,
+      "spreadDeg": 240,
+      "gravityPx": 240,
+      "spinDegPerSec": [
+        -480,
+        480
+      ],
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(51, 65, 85, 0.7)",
+        "rgba(30, 41, 59, 0.6)"
+      ],
+      "count": 12,
+      "durationSec": [
+        0.55,
+        0.9
+      ],
+      "sizePx": [
+        12,
+        20
+      ],
+      "sizeEndScale": 2.3,
+      "alphaStart": 0.65,
+      "alphaEnd": 0,
+      "speedPx": [
+        25,
+        75
+      ],
+      "spreadDeg": 360,
+      "gravityPx": -35,
+      "drag": 2.2,
+      "delaySec": 0.06
+    }
+  ]
+}

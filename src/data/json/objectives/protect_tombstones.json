@@ -1,0 +1,12 @@
+{
+  "id": "protect_tombstones",
+  "title": "Preservar Sellos",
+  "description": "Evita que los SCP destruyan las lápidas/sellos de contención del sector.",
+  "category": "fail_condition",
+  "kind": "protect_obstacles",
+  "obstacleKind": "tombstone",
+  "maxCount": 0,
+  "failOnViolate": true,
+  "failReason": "¡Los SCP destruyeron un sello de contención protegido!",
+  "color": "#A855F7"
+}

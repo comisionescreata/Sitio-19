@@ -1,0 +1,10 @@
+{
+  "id": "destroy_all_tombstones",
+  "title": "Limpiar el Sector",
+  "description": "Destruye todas las lápidas u obstáculos del mapa.",
+  "category": "primary",
+  "kind": "destroy_all_obstacles",
+  "obstacleKind": "tombstone",
+  "requiredForVictory": true,
+  "color": "#F59E0B"
+}

@@ -1,0 +1,17 @@
+{
+  "type": "grenadier",
+  "name": "Granadero Táctico",
+  "category": "personal",
+  "cost": 225,
+  "cooldown": 8.5,
+  "maxHp": 210,
+  "unlockLevel": 32,
+  "roleLabel": "Área 3x3 · 75",
+  "description": "Lanza granadas de fragmentación que infligen 75 de daño en área (3x3) al impactar. Devastador contra enjambres.",
+  "fireRate": 2,
+  "damage": 75,
+  "burstCount": 1,
+  "splashRadius": 1.15,
+  "projectileKind": "grenade",
+  "canBeHypnotized": true
+}

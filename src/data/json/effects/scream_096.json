@@ -1,0 +1,25 @@
+{
+  "id": "scream_096",
+  "engineMode": "builtin",
+  "category": "trigger",
+  "kind": "enrage_stun",
+  "name": "Furia de SCP-096",
+  "description": "Al llegar a la segunda casilla convulsiona y grita aturdiendo torres cercanas, luego corre velozmente con la vida de un SCP-008 y daño letal.",
+  "trigger": "on_hp_below",
+  "targetSide": "towers",
+  "areaShape": "rect",
+  "radiusRows": 1,
+  "radiusCols": 3.5,
+  "stunDurationSec": 2.8,
+  "color": "#EF4444",
+  "badgeLabel": "ATURDIDA",
+  "modifiers": {
+    "stunSec": 2.8
+  },
+  "visual": {
+    "waveKind": "stun_wave",
+    "floatingText": "¡GRITO!",
+    "floatingTextColor": "#EF4444",
+    "sound": "stun"
+  }
+}

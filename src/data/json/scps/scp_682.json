@@ -1,0 +1,23 @@
+{
+  "type": "scp_682",
+  "code": "SCP-682",
+  "name": "El Reptil Indestructible",
+  "classification": "Keter · Coloso 2 Líneas",
+  "hp": 3000,
+  "speed": 0.065,
+  "dps": 220,
+  "scoreValue": 650,
+  "portrait": "/src/assets/images/682.webp",
+  "summary": "3000 de vida, movimiento extremadamente lento, daño brutal e inmune a explosiones (Minas y Granaderos). Ocupa 2 líneas simultáneas [x1, x2].",
+  "tacticalNote": "Las Minas y Granadas no le hacen daño. Concentra fuego de dos carriles con Tiradores MTF, Artilleros, Fuego y Torreta.",
+  "effects": [
+    "juggernaut_682"
+  ],
+  "announcement": "¡ALERTA KETER! SCP-682 ingresa ocupando 2 líneas. Inmune a explosiones.",
+  "behavior": {
+    "laneSpan": 2,
+    "immunities": [
+      "explosion"
+    ]
+  }
+}

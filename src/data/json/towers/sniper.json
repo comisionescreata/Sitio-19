@@ -1,0 +1,16 @@
+{
+  "type": "sniper",
+  "name": "Tirador MTF",
+  "category": "personal",
+  "cost": 225,
+  "cooldown": 8.5,
+  "maxHp": 170,
+  "unlockLevel": 13,
+  "roleLabel": "Perforante · 110",
+  "description": "Francotirador táctico de largo alcance. Letal contra SCP-173, SCP-966 y SCP-049.",
+  "fireRate": 2.2,
+  "damage": 110,
+  "burstCount": 1,
+  "projectileKind": "sniper",
+  "canBeHypnotized": true
+}

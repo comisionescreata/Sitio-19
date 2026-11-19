@@ -1,0 +1,10 @@
+{
+  "type": "barricade",
+  "name": "Barricada Blindada",
+  "category": "estructura",
+  "cost": 75,
+  "cooldown": 30,
+  "maxHp": 1200,
+  "roleLabel": "Muro · 1200 HP",
+  "description": "Bloquea el avance enemigo. Su defensa queda anulada si SCP-966 está en rango 3x3."
+}

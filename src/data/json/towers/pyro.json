@@ -1,0 +1,18 @@
+{
+  "type": "pyro",
+  "name": "Agente Incendiario",
+  "category": "personal",
+  "cost": 175,
+  "cooldown": 7,
+  "maxHp": 200,
+  "unlockLevel": 7,
+  "roleLabel": "Fuego · 24 + 14/s",
+  "description": "Dispara proyectiles térmicos que infligen quemadura continua de 14/s durante 3s.",
+  "fireRate": 1.4,
+  "damage": 24,
+  "burstCount": 1,
+  "burnDps": 14,
+  "burnDuration": 3,
+  "projectileKind": "pyro",
+  "canBeHypnotized": true
+}

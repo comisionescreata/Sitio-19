@@ -1,0 +1,48 @@
+{
+  "id": "attack_tesla",
+  "name": "Descarga de Bobina Tesla",
+  "description": "Chispas eléctricas de alto voltaje y anillo iónico cian.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#38BDF8",
+        "#E0F2FE"
+      ],
+      "count": 1,
+      "durationSec": 0.28,
+      "sizePx": 10,
+      "ringExpandPx": 46,
+      "strokeWidth": 2.5,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "spark",
+      "colors": [
+        "#38BDF8",
+        "#7DD3FC",
+        "#FFFFFF"
+      ],
+      "count": 12,
+      "durationSec": [
+        0.16,
+        0.3
+      ],
+      "sizePx": [
+        2.2,
+        4.2
+      ],
+      "sizeEndScale": 0.1,
+      "speedPx": [
+        70,
+        165
+      ],
+      "spreadDeg": 360,
+      "drag": 3.5,
+      "blendMode": "lighter",
+      "glowColor": "#38BDF8",
+      "glowBlur": 8
+    }
+  ]
+}

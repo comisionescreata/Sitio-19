@@ -1,0 +1,76 @@
+{
+  "id": "deploy_scp",
+  "name": "Irrupción de Brecha SCP",
+  "description": "Humo carmesí y fragmentos de alerta al entrar una entidad SCP al tablero.",
+  "category": "deployment",
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#EF4444",
+        "#FB7185"
+      ],
+      "count": 1,
+      "durationSec": 0.48,
+      "sizePx": 10,
+      "ringExpandPx": 42,
+      "alphaStart": 0.85,
+      "alphaEnd": 0,
+      "strokeWidth": 2.5
+    },
+    {
+      "shape": "shard",
+      "colors": [
+        "#EF4444",
+        "#DC2626",
+        "#FCA5A5"
+      ],
+      "count": 10,
+      "durationSec": [
+        0.35,
+        0.55
+      ],
+      "sizePx": [
+        3,
+        5.5
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        40,
+        95
+      ],
+      "spreadDeg": 360,
+      "spinDegPerSec": [
+        -280,
+        280
+      ],
+      "drag": 2.2,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(127, 29, 29, 0.5)",
+        "rgba(30, 41, 59, 0.45)"
+      ],
+      "count": 6,
+      "durationSec": [
+        0.45,
+        0.75
+      ],
+      "sizePx": [
+        10,
+        16
+      ],
+      "sizeEndScale": 2,
+      "alphaStart": 0.48,
+      "alphaEnd": 0,
+      "speedPx": [
+        15,
+        40
+      ],
+      "spreadDeg": 360,
+      "gravityPx": -22
+    }
+  ]
+}

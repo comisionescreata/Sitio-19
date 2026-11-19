@@ -1,0 +1,55 @@
+{
+  "level": 1,
+  "title": "Sector 1: Contencion simple",
+  "description": "Los primeros scp 008 que veras, buena suerte",
+  "coverImage": "/src/assets/images/scp-008.png",
+  "startingEnergy": 200,
+  "maxDeckSlots": 6,
+  "rewardLabel": "Desbloquea: Barricada Blindada",
+  "grid": {
+    "rows": 3,
+    "cols": 9
+  },
+  "events": [
+    {
+      "time": 12,
+      "type": "scp_008"
+    },
+    {
+      "time": 4,
+      "type": "scp_008"
+    },
+    {
+      "time": 5,
+      "type": "scp_008",
+      "count": 2
+    },
+    {
+      "time": 5,
+      "type": "scp_008"
+    },
+    {
+      "time": 4,
+      "type": "scp_008",
+      "count": 2
+    },
+    {
+      "time": 6,
+      "type": "scp_008",
+      "count": 3
+    },
+    {
+      "time": 10,
+      "type": "scp_008",
+      "count": 4,
+      "isFlagHorde": true,
+      "hordeLabel": "Se aproxima una gran horda de muertos vivientes"
+    },
+    {
+      "time": 1,
+      "type": "scp_008",
+      "count": 3
+    }
+  ],
+  "unlockTower": "barricade"
+}

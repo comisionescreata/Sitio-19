@@ -1,7 +1,9 @@
 import {
+  DESIGN_CATALOG,
   EFFECTS_CATALOG,
   ENEMY_CATALOG,
   GAME_CONFIG,
+  PARTICLES_CATALOG,
   TOWER_CATALOG,
 } from '../data/scpCatalog';
 import {
@@ -9,8 +11,10 @@ import {
   BoardDesignConfig,
   BoardObstacle,
   BoardObstacleConfig,
+  DamageTypeKind,
   DialogueDefinition,
   Door079,
+  EffectSoundKey,
   EmergencyGate,
   Enemy,
   EnemyDefinition,
@@ -23,6 +27,7 @@ import {
   LevelRulesConfig,
   LevelSkyEnergyConfig,
   LevelVictoryCondition,
+  ObjectiveProgressState,
   PocketRescue,
   Projectile,
   ResolvedSpawnTarget,
@@ -40,7 +45,7 @@ import {
   DeclarativeSpawnRequest,
   enemyHasDeclarativeImmunity,
   initEntityEffectTimers,
-  spawnParticleBurst,
+  playEffectSound,
   stepDeclarativeEffects,
   triggerDeclarativeHooks,
   triggerProjectileDeclarativeHits,
@@ -62,6 +67,13 @@ import {
   stepLevelEvents,
 } from './eventRunner';
 import { resolveMatchTimeline, resolveSpawnTargetsForSpec } from './levelParser';
+import {
+  arePrimaryObjectivesCompleted,
+  finalizeObjectivesOnOutcome,
+  initLevelObjectives,
+  stepObjectives,
+} from './objectiveRunner';
+import { ParticleEmitOptions, ParticleSystem } from './particleSystem';
 
 export interface QueuedDialogueEntry {
   dialogueId?: string;
@@ -105,8 +117,9 @@ export interface SimState {
   projectiles: Projectile[];
   energyDrops: EnergyDrop[];
   effects: VisualEffect[];
+  particleSystem: ParticleSystem;
   gates: EmergencyGate[];
-  cooldowns: Record<TowerType, number>;
+  cooldowns: Record<string, number>;
   kills: number;
   towersDeployed: number;
   obstacleDestroyedCount: number;
@@ -129,6 +142,18 @@ export interface SimState {
   recentlyCompletedDialogues: string[];
   recentlySpawnedEnemyTypes: EnemyType[];
   recentlyTriggeredWaveIndices: number[];
+  objectives: ObjectiveProgressState[];
+  killsByEnemyType: Record<string, number>;
+  teslaGatesUsedCount: number;
+  towersLostCount: number;
+  obstaclesLostCount: number;
+  obstaclesLostByKind: Record<string, number>;
+  obstaclesDestroyedByKind: Record<string, number>;
+  deployedTowerTypesUsed: Set<string>;
+  energySpentTotal: number;
+  triggeredEventIds: Set<string>;
+  endlessCycle?: number;
+  defeatReason?: string;
 }
 
 export type SimOutcome = 'PLAYING' | 'VICTORY' | 'GAME_OVER';
@@ -156,10 +181,46 @@ function getTowerDef(type: TowerType): TowerDefinition | undefined {
   return cached;
 }
 
-export function getEffectiveTowerCost(type: TowerType, rules?: LevelRulesConfig): number {
+export function emitSimParticles(
+  s: SimState,
+  presetId: string | undefined,
+  row: number,
+  col: number,
+  opts?: ParticleEmitOptions
+) {
+  if (!presetId || !s.particleSystem) return;
+  const meta = s.particleSystem.emitPreset(presetId, row, col, {
+    cellSize: GAME_CONFIG.boardLayout.cellSize,
+    ...opts,
+  });
+  if (!meta) return;
+  if (meta.screenShake && meta.screenShake > 0) {
+    s.shakeIntensity = Math.max(s.shakeIntensity, meta.screenShake);
+    s.shakeTimer = Math.max(s.shakeTimer, 0.35);
+  }
+  if (meta.screenFlashRgb) {
+    s.flashRgb = meta.screenFlashRgb;
+    s.flashAlpha = Math.max(s.flashAlpha, meta.screenFlashAlpha ?? 0.25);
+    s.flashDecaySpeed = 2.6;
+  }
+  if (meta.sound) {
+    playEffectSound(meta.sound as EffectSoundKey);
+  }
+}
+
+export function getEffectiveTowerCost(
+  type: TowerType,
+  rules?: LevelRulesConfig,
+  sim?: SimState
+): number {
   const def = getTowerDef(type);
   if (!def) return 0;
-  return Math.max(0, Math.round(def.cost * (rules?.towerCostMultiplier ?? 1)));
+  const deployedCount =
+    sim && def.costScalePerDeployed
+      ? sim.towers.filter((t) => t.type === type).length
+      : 0;
+  const raw = def.cost * (rules?.towerCostMultiplier ?? 1) + deployedCount * (def.costScalePerDeployed ?? 0);
+  return Math.max(0, Math.round(raw));
 }
 
 export function getEffectiveTowerCooldown(type: TowerType, rules?: LevelRulesConfig): number {
@@ -260,14 +321,20 @@ export function spawnBoardObstacleInSim(
 export function destroyBoardObstacleInSim(
   s: SimState,
   ob: BoardObstacle,
-  triggerDestroyEffects = true
+  triggerDestroyEffects = true,
+  destroyedByEnemy = false
 ) {
   const idx = s.obstacles.findIndex((o) => o.id === ob.id);
   if (idx === -1) return;
   s.obstacles.splice(idx, 1);
   s.obstacleDestroyedCount += 1;
+  s.obstaclesDestroyedByKind[ob.kind] = (s.obstaclesDestroyedByKind[ob.kind] ?? 0) + 1;
+  if (destroyedByEnemy) {
+    s.obstaclesLostCount += 1;
+    s.obstaclesLostByKind[ob.kind] = (s.obstaclesLostByKind[ob.kind] ?? 0) + 1;
+  }
 
-  spawnParticleBurst(s, ob.row, ob.col, ob.strokeColor ?? '#94A3B8', 10, 85, 0.5, 3.5, nextSimId);
+  emitSimParticles(s, 'obstacle_break', ob.row, ob.col);
 
   if (!triggerDestroyEffects) return;
 
@@ -368,7 +435,7 @@ export function notifyDialogueCompletedInSim(
 }
 
 export function createInitialSim(levelConfig: LevelConfig): SimState {
-  const cooldowns = {} as Record<TowerType, number>;
+  const cooldowns: Record<string, number> = {};
   for (const t of TOWER_CATALOG) {
     cooldowns[t.type] = 0;
   }
@@ -434,6 +501,7 @@ export function createInitialSim(levelConfig: LevelConfig): SimState {
     projectiles: [],
     energyDrops: [],
     effects: [],
+    particleSystem: new ParticleSystem(450),
     gates: Array.from({ length: gridRows }, (_, row) => ({
       row,
       available: !levelConfig.disableTeslaGates,
@@ -463,6 +531,18 @@ export function createInitialSim(levelConfig: LevelConfig): SimState {
     recentlyCompletedDialogues: [],
     recentlySpawnedEnemyTypes: [],
     recentlyTriggeredWaveIndices: [],
+    objectives: initLevelObjectives(levelConfig),
+    killsByEnemyType: {},
+    teslaGatesUsedCount: 0,
+    towersLostCount: 0,
+    obstaclesLostCount: 0,
+    obstaclesLostByKind: {},
+    obstaclesDestroyedByKind: {},
+    deployedTowerTypesUsed: new Set<string>(),
+    energySpentTotal: 0,
+    triggeredEventIds: new Set<string>(),
+    endlessCycle: 0,
+    defeatReason: undefined,
   };
 
   // Starting Doors 079
@@ -491,11 +571,13 @@ export function createInitialSim(levelConfig: LevelConfig): SimState {
     const maxHp = Math.max(1, Math.round((st.hp ?? def.maxHp) * towerHpMult));
     const towerEffects = [
       ...(def.effects ?? []),
+      ...(def.onDeployEffects ?? []),
       ...s.globalEffects.filter((id) => {
         const fx = EFFECTS_CATALOG[id];
         return fx && (fx.targetSide === 'towers' || fx.targetSide === 'allies');
       }),
     ];
+    const startShield = st.shieldHp ?? def.shieldOnDeploy;
     const tower: Tower = {
       id: nextSimId('twr'),
       type: def.type,
@@ -504,7 +586,8 @@ export function createInitialSim(levelConfig: LevelConfig): SimState {
       col,
       hp: maxHp,
       maxHp,
-      shieldHp: st.shieldHp,
+      shieldHp: startShield && startShield > 0 ? startShield : undefined,
+      shieldColor: def.shieldColor,
       actionTimer: def.energyAmount ? 3.5 : 0.7,
       armProgress: def.armTime ? 1 : 0,
       isArmed: Boolean(def.armTime),
@@ -513,7 +596,7 @@ export function createInitialSim(levelConfig: LevelConfig): SimState {
       radioProtected: false,
       stunTimer: 0,
       deafTimer: 0,
-      immuneToPsych: Boolean(st.immuneToPsych),
+      immuneToPsych: Boolean(st.immuneToPsych || def.immuneToPsych),
       recoil: 0,
       hitFlash: 0,
     };
@@ -691,6 +774,10 @@ export function spawnEnemyAt(
   ];
   const combinedEffects = [...(def.effects ?? []), ...mergedExtra];
 
+  const behavior = def.behavior;
+  const resolvedBadge = waveOpts?.eliteBadge ?? behavior?.eliteBadge;
+  const resolvedColor = waveOpts?.eliteColor ?? behavior?.eliteColor;
+
   const newEnemy: Enemy = {
     id: nextSimId('scp'),
     type,
@@ -699,6 +786,8 @@ export function spawnEnemyAt(
     col: spawnCol,
     hp: scaledHp,
     maxHp: scaledHp,
+    shieldHp: behavior?.initialShieldHp,
+    shieldColor: behavior?.shieldColor,
     baseSpeed: scaledSpeed,
     currentSpeed: scaledSpeed,
     dps: scaledDps,
@@ -710,7 +799,15 @@ export function spawnEnemyAt(
     silenceTimer: 0,
     hitFlash: 0,
     animPhase: Math.random() * 6,
-    blinkMoveTimer: blinkCfg?.moveIntervalSec ?? 4.0,
+    blinkMoveTimer: behavior?.blinkJump?.intervalSec ?? blinkCfg?.moveIntervalSec ?? 4.0,
+    laneHopTimer: behavior?.laneHopIntervalSec,
+    rangedAttackTimer: behavior?.rangedAttack
+      ? behavior.rangedAttack.intervalSec * 0.65
+      : undefined,
+    summonPeriodicTimer: behavior?.summonPeriodic
+      ? behavior.summonPeriodic.initialDelaySec ?? behavior.summonPeriodic.intervalSec
+      : undefined,
+    trailParticleTimer: def.particles?.trailIntervalSec ?? 0.25,
     hasRevived: false,
     isAttacking: false,
     packId,
@@ -723,18 +820,34 @@ export function spawnEnemyAt(
     phase079Triggered: false,
     extraEffects: mergedExtra.length > 0 ? mergedExtra : undefined,
     extraImmunities: waveOpts?.immunities,
-    customBadge: waveOpts?.eliteBadge
+    customDamageReduction: behavior?.damageReduction,
+    customLifesteal: behavior?.lifestealRatio,
+    customThornsDps: behavior?.thornsDps,
+    extraLivesLeft: behavior?.reviveCount,
+    extraReviveHpPercent: behavior?.reviveHpPercent ?? 1.0,
+    customBadge: resolvedBadge
       ? {
-          label: waveOpts.eliteBadge,
-          color: waveOpts.eliteColor ?? '#F59E0B',
-          textColor: waveOpts.eliteColor ?? '#FDE68A',
+          label: resolvedBadge,
+          color: resolvedColor ?? '#F59E0B',
+          textColor: resolvedColor ?? '#FDE68A',
         }
       : undefined,
-    customTintColor: waveOpts?.eliteColor,
+    customTintColor: resolvedColor,
   };
   initEntityEffectTimers(newEnemy, combinedEffects);
   s.enemies.push(newEnemy);
   s.recentlySpawnedEnemyTypes.push(type);
+
+  emitSimParticles(
+    s,
+    def.particles?.onSpawn ?? (spawnRule?.mode === 'sky' ? 'deploy_sky_drop' : 'deploy_scp'),
+    newEnemy.row,
+    spawnCol
+  );
+  if (def.soundOnSpawn) {
+    playEffectSound(def.soundOnSpawn as EffectSoundKey);
+  }
+
   const spawnExtras: DeclarativeSpawnRequest[] = [];
   triggerDeclarativeHooks(
     s,
@@ -751,6 +864,21 @@ export function spawnEnemyAt(
   );
   for (const ex of spawnExtras) {
     spawnEnemyAt(s, ex.type, { row: ex.row, occupiedRows: [ex.row] }, ex.col);
+  }
+
+  if (behavior?.onSpawnTriggerEventId) {
+    const resolvedEv = resolveEventDefinition(behavior.onSpawnTriggerEventId);
+    if (resolvedEv) {
+      executeLevelEvent(
+        s,
+        resolvedEv,
+        nextSimId,
+        spawnEnemyAt,
+        hasEnemyImmunity,
+        { row: newEnemy.row, col: newEnemy.col },
+        EVENT_ENGINE_CALLBACKS
+      );
+    }
   }
 }
 
@@ -814,6 +942,7 @@ export function collectEnergyDropInSim(s: SimState, px: number, py: number): boo
     text: `+${drop.amount}`,
     color: '#FBBF24',
   });
+  emitSimParticles(s, 'energy_collect', drop.yRow, drop.xCol);
   soundEngine.playCollect();
   return true;
 }
@@ -854,12 +983,16 @@ export function canPlaceTowerAt(
 ): boolean {
   if (row < 0 || row >= s.gridRows || col < 0 || col >= s.gridCols) return false;
   if (isCellBlocked(s, row, col)) return false;
+  const def = getTowerDef(towerType);
+  if (!def) return false;
+
   const obstacle = s.obstacles.find((o) => o.row === row && o.col === col && o.blocksPlacement);
   if (obstacle) {
     const canCounterClear =
-      obstacle.allowCounterPlacement &&
-      obstacle.destructible &&
-      obstacle.counterTowerTypes?.includes(towerType);
+      (obstacle.allowCounterPlacement &&
+        obstacle.destructible &&
+        obstacle.counterTowerTypes?.includes(towerType)) ||
+      Boolean(def.canPlaceOnObstacles);
     if (!canCounterClear) return false;
   }
   if (s.towers.some((t) => t.row === row && t.col === col)) return false;
@@ -867,10 +1000,14 @@ export function canPlaceTowerAt(
   if (s.rules?.maxTowersOnBoard !== undefined && s.towers.length >= s.rules.maxTowersOnBoard) {
     return false;
   }
-  const def = getTowerDef(towerType);
-  if (!def) return false;
   if (def.placementRule === 'backHalf' && col >= Math.ceil(s.gridCols / 2)) return false;
   if (def.placementRule === 'frontHalf' && col < Math.floor(s.gridCols / 2)) return false;
+  if (def.allowedRows && def.allowedRows.length > 0 && !def.allowedRows.includes(row)) {
+    return false;
+  }
+  if (def.allowedCols && def.allowedCols.length > 0 && !def.allowedCols.includes(col)) {
+    return false;
+  }
   if (def.maxPerBoard !== undefined) {
     const boardCount = s.towers.filter((t) => t.type === towerType).length;
     if (boardCount >= def.maxPerBoard) return false;
@@ -891,16 +1028,17 @@ export function placeTowerInSim(
   if (!canPlaceTowerAt(s, towerType, row, col)) return false;
   const def = getTowerDef(towerType);
   if (!def) return false;
-  const effectiveCost = getEffectiveTowerCost(towerType, s.rules);
-  if (s.energy < effectiveCost || s.cooldowns[def.type] > 0) return false;
+  const effectiveCost = getEffectiveTowerCost(towerType, s.rules, s);
+  if (s.energy < effectiveCost || (s.cooldowns[def.type] ?? 0) > 0) return false;
 
   // Counter-unit clears destructible tombstone / obstacle directly on placement (PvZ Grave Buster style)
   const blockingOb = s.obstacles.find((o) => o.row === row && o.col === col && o.blocksPlacement);
   if (
     blockingOb &&
-    blockingOb.allowCounterPlacement &&
-    blockingOb.destructible &&
-    blockingOb.counterTowerTypes?.includes(towerType)
+    ((blockingOb.allowCounterPlacement &&
+      blockingOb.destructible &&
+      blockingOb.counterTowerTypes?.includes(towerType)) ||
+      (def.canPlaceOnObstacles && blockingOb.destructible))
   ) {
     s.effects.push({
       id: nextSimId('fx'),
@@ -916,18 +1054,38 @@ export function placeTowerInSim(
   }
 
   s.energy -= effectiveCost;
+  s.energySpentTotal += effectiveCost;
+  s.deployedTowerTypesUsed.add(def.type);
   s.cooldowns[def.type] = getEffectiveTowerCooldown(towerType, s.rules);
   s.towersDeployed += 1;
+
+  if (def.deployEnergyBonus) {
+    s.energy += def.deployEnergyBonus;
+    if (s.rules?.energyCap !== undefined) {
+      s.energy = Math.min(s.rules.energyCap, s.energy);
+    }
+    s.effects.push({
+      id: nextSimId('fx'),
+      kind: 'text',
+      row,
+      col,
+      timer: 0,
+      duration: 0.85,
+      text: `+${def.deployEnergyBonus} EN`,
+      color: '#FBBF24',
+    });
+  }
 
   const hpMult = s.rules?.towerHpMultiplier ?? 1;
   const scaledMaxHp = Math.max(1, Math.round(def.maxHp * hpMult));
   const mods = getTileModifiersAt(s, row, col);
-  const initialShield = mods
-    .filter((m) => m.kind === 'shield')
-    .reduce((acc, m) => acc + (m.value ?? 150), 0);
+  const initialShield =
+    mods.filter((m) => m.kind === 'shield').reduce((acc, m) => acc + (m.value ?? 150), 0) +
+    (def.shieldOnDeploy ?? 0);
 
   const towerEffects = [
     ...(def.effects ?? []),
+    ...(def.onDeployEffects ?? []),
     ...s.globalEffects.filter((id) => {
       const fx = EFFECTS_CATALOG[id];
       return fx && (fx.targetSide === 'towers' || fx.targetSide === 'allies');
@@ -943,6 +1101,7 @@ export function placeTowerInSim(
     hp: scaledMaxHp,
     maxHp: scaledMaxHp,
     shieldHp: initialShield > 0 ? initialShield : undefined,
+    shieldColor: def.shieldColor,
     actionTimer: def.energyAmount ? 3.5 : 0.7,
     armProgress: 0,
     isArmed: false,
@@ -951,12 +1110,20 @@ export function placeTowerInSim(
     radioProtected: false,
     stunTimer: 0,
     deafTimer: 0,
-    immuneToPsych: false,
+    immuneToPsych: Boolean(def.immuneToPsych),
     recoil: 0,
     hitFlash: 0,
   };
   initEntityEffectTimers(newTower, towerEffects);
   s.towers.push(newTower);
+
+  emitSimParticles(
+    s,
+    def.particles?.onDeploy ?? (def.category === 'personal' ? 'deploy_personal' : 'deploy_structure'),
+    row,
+    col
+  );
+
   const spawnExtras: DeclarativeSpawnRequest[] = [];
   triggerDeclarativeHooks(
     s,
@@ -974,7 +1141,27 @@ export function placeTowerInSim(
   for (const ex of spawnExtras) {
     spawnEnemyAt(s, ex.type, { row: ex.row, occupiedRows: [ex.row] }, ex.col);
   }
-  soundEngine.playPlace();
+
+  if (def.onDeployTriggerEventId) {
+    const resolvedEv = resolveEventDefinition(def.onDeployTriggerEventId);
+    if (resolvedEv) {
+      executeLevelEvent(
+        s,
+        resolvedEv,
+        nextSimId,
+        spawnEnemyAt,
+        hasEnemyImmunity,
+        { row, col },
+        EVENT_ENGINE_CALLBACKS
+      );
+    }
+  }
+
+  if (def.soundOnDeploy) {
+    playEffectSound(def.soundOnDeploy as EffectSoundKey);
+  } else {
+    soundEngine.playPlace();
+  }
   return true;
 }
 
@@ -983,25 +1170,59 @@ function applyMitigatedEnemyDamage(
   enemy: Enemy,
   rawDmg: number,
   sourceTowerId?: string,
-  triggerDamagedHook = true
+  triggerDamagedHook = true,
+  dmgOpts?: { damageType?: DamageTypeKind; armorPenetration?: number }
 ): number {
   if (rawDmg <= 0 || enemy.hp <= 0) return 0;
+  const def = getEnemyDef(enemy.type);
+
+  if (sourceTowerId && def?.behavior?.dodgeChance && Math.random() < def.behavior.dodgeChance) {
+    s.effects.push({
+      id: nextSimId('fx'),
+      kind: 'text',
+      row: enemy.row,
+      col: enemy.col,
+      timer: 0,
+      duration: 0.55,
+      text: 'ESQUIVADO',
+      color: '#38BDF8',
+    });
+    return 0;
+  }
+
+  if (dmgOpts?.damageType === 'explosion' && hasEnemyImmunity(enemy.type, 'explosion', enemy)) {
+    return 0;
+  }
+  if (dmgOpts?.damageType === 'cryo' && hasEnemyImmunity(enemy.type, 'slow', enemy)) {
+    return 0;
+  }
+  if (dmgOpts?.damageType === 'fire' && hasEnemyImmunity(enemy.type, 'burn', enemy)) {
+    return 0;
+  }
+
   if (sourceTowerId) enemy.lastHitByTowerId = sourceTowerId;
   const vuln = enemy.customVulnerableMult ?? 1;
-  const red = Math.min(0.85, Math.max(0, enemy.customDamageReduction ?? 0));
+  const baseRed = Math.min(0.85, Math.max(0, enemy.customDamageReduction ?? 0));
+  const pen = Math.min(1, Math.max(0, dmgOpts?.armorPenetration ?? 0));
+  const red = dmgOpts?.damageType === 'true' ? 0 : baseRed * (1 - pen);
   let dmg = rawDmg * vuln * (1 - red);
   if (enemy.shieldHp && enemy.shieldHp > 0) {
     const absorbed = Math.min(enemy.shieldHp, dmg);
     enemy.shieldHp -= absorbed;
     dmg -= absorbed;
   }
+  if (def?.behavior?.maxDamagePerHit && dmg > def.behavior.maxDamagePerHit) {
+    dmg = def.behavior.maxDamagePerHit;
+  }
   if (dmg > 0) {
     enemy.hp -= dmg;
     enemy.hitFlash = Math.max(enemy.hitFlash, 0.35);
-    if (enemy.activeEffects && sourceTowerId) {
-      let totalReflect = 0;
-      for (const st of Object.values(enemy.activeEffects)) {
-        if (st.reflectDamagePercent) totalReflect += st.reflectDamagePercent;
+    if (sourceTowerId) {
+      let totalReflect = def?.behavior?.reflectDamagePercent ?? 0;
+      if (enemy.activeEffects) {
+        for (const st of Object.values(enemy.activeEffects)) {
+          if (st.reflectDamagePercent) totalReflect += st.reflectDamagePercent;
+        }
       }
       if (totalReflect > 0) {
         const srcTower = s.towers.find((t) => t.id === sourceTowerId);
@@ -1012,7 +1233,9 @@ function applyMitigatedEnemyDamage(
       }
     }
     if (triggerDamagedHook) {
-      const def = getEnemyDef(enemy.type);
+      if (def?.particles?.onDamaged) {
+        emitSimParticles(s, def.particles.onDamaged, enemy.row, enemy.col);
+      }
       const effects = [...(def?.effects ?? []), ...(enemy.extraEffects ?? [])];
       const extras: DeclarativeSpawnRequest[] = [];
       triggerDeclarativeHooks(
@@ -1056,17 +1279,19 @@ function applyMitigatedTowerDamage(
   if (dmg > 0) {
     tower.hp -= dmg;
     tower.hitFlash = Math.max(tower.hitFlash, 0.35);
-    if (tower.activeEffects && attackerEnemy && attackerEnemy.hp > 0) {
-      let totalReflect = 0;
-      for (const st of Object.values(tower.activeEffects)) {
-        if (st.reflectDamagePercent) totalReflect += st.reflectDamagePercent;
+    const tDef = getTowerDef(tower.type);
+    if (attackerEnemy && attackerEnemy.hp > 0) {
+      let totalReflect = tDef?.reflectDamagePercent ?? 0;
+      if (tower.activeEffects) {
+        for (const st of Object.values(tower.activeEffects)) {
+          if (st.reflectDamagePercent) totalReflect += st.reflectDamagePercent;
+        }
       }
       if (totalReflect > 0) {
         applyMitigatedEnemyDamage(s, attackerEnemy, dmg * totalReflect, tower.id, false);
       }
     }
     if (triggerDamagedHook) {
-      const tDef = getTowerDef(tower.type);
       const extras: DeclarativeSpawnRequest[] = [];
       triggerDeclarativeHooks(
         s,
@@ -1229,27 +1454,50 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
     EVENT_ENGINE_CALLBACKS
   );
 
-  // Check victory conditions
-  const vcMode = s.victoryCondition?.mode ?? 'standard';
-  if (vcMode === 'survive_time') {
-    const targetSec = s.victoryCondition?.targetSeconds ?? s.levelConfig.durationSeconds;
-    if (s.levelTimer >= targetSec) {
-      soundEngine.playVictory();
-      return 'VICTORY';
-    }
-  } else if (vcMode === 'kill_count') {
-    const targetKills = s.victoryCondition?.targetKills ?? 25;
-    if (s.kills >= targetKills) {
-      soundEngine.playVictory();
-      return 'VICTORY';
-    }
-  } else {
-    const allSpawned =
-      s.spawnedIndices.size >= s.timeline.length && s.pendingStaggeredSpawns.length === 0;
-    if (allSpawned && s.enemies.length === 0) {
-      soundEngine.playVictory();
-      return 'VICTORY';
-    }
+  // Check objectives & victory conditions
+  const earlyObjRes = stepObjectives(s);
+  if (earlyObjRes.failedReason) {
+    s.defeatReason = earlyObjRes.failedReason;
+    finalizeObjectivesOnOutcome(s, false);
+    soundEngine.playGameOver();
+    return 'GAME_OVER';
+  }
+
+  const zeroTowersAfter = s.victoryCondition?.defeatOnZeroTowersAfterSec;
+  if (zeroTowersAfter !== undefined && s.levelTimer >= zeroTowersAfter && s.towers.length === 0) {
+    s.defeatReason = 'Toda la fuerza defensiva fue eliminada tras el despliegue inicial.';
+    finalizeObjectivesOnOutcome(s, false);
+    soundEngine.playGameOver();
+    return 'GAME_OVER';
+  }
+
+  if (evaluateVictoryCondition(s)) {
+    finalizeObjectivesOnOutcome(s, true);
+    soundEngine.playVictory();
+    return 'VICTORY';
+  }
+
+  // Handle endless timeline cycling when all waves have spawned
+  if (
+    s.victoryCondition?.mode === 'endless' &&
+    s.timeline.length > 0 &&
+    s.spawnedIndices.size >= s.timeline.length &&
+    s.pendingStaggeredSpawns.length === 0 &&
+    s.enemies.length === 0
+  ) {
+    const cycle = (s.endlessCycle ?? 0) + 1;
+    s.endlessCycle = cycle;
+    const minT = s.timeline.reduce((m, e) => Math.min(m, e.time), s.timeline[0].time);
+    const baseOffset = s.levelTimer + 4;
+    s.timeline = s.timeline.map((ev) => ({
+      ...ev,
+      time: baseOffset + (ev.time - minT),
+      hpMultiplier: (ev.hpMultiplier ?? 1) * 1.18,
+      speedMultiplier: (ev.speedMultiplier ?? 1) * 1.03,
+    }));
+    s.spawnedIndices.clear();
+    s.announcement = `¡Oleada Infinita #${cycle + 1} iniciada! Amenaza escalada.`;
+    s.announcementTimer = 4.0;
   }
 
   // 3.5 Pocket Dimension rescues (SCP-106)
@@ -1445,10 +1693,74 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
   const ruleTowerDmgMult = s.rules?.towerDamageMultiplier ?? 1;
   const ruleTowerFireMult = s.rules?.towerFireRateMultiplier ?? 1;
 
+  const isEnemyTargetable = (e: Enemy): boolean => {
+    if (e.hp <= 0 || e.skyOffsetRows > 0.3) return false;
+    const untargetCol = getEnemyDef(e.type)?.behavior?.untargetableUntilCol;
+    if (untargetCol !== undefined && e.col > untargetCol) return false;
+    return true;
+  };
+
+  const isBossEnemy = (e: Enemy): boolean =>
+    e.occupiedRows.length > 1 || Boolean(e.customBadge);
+
+  const sortTargetEnemies = (
+    list: Enemy[],
+    refCol: number,
+    priority?: TowerDefinition['targetPriority']
+  ): Enemy[] => {
+    const copy = [...list];
+    switch (priority) {
+      case 'furthest':
+        return copy.sort((a, b) => b.col - a.col);
+      case 'lowest_hp':
+        return copy.sort((a, b) => a.hp - b.hp);
+      case 'highest_hp':
+        return copy.sort((a, b) => b.hp - a.hp);
+      case 'fastest':
+        return copy.sort(
+          (a, b) =>
+            b.currentSpeed * (1 - b.slowFactor) - a.currentSpeed * (1 - a.slowFactor)
+        );
+      default:
+        return copy.sort((a, b) => Math.abs(a.col - refCol) - Math.abs(b.col - refCol));
+    }
+  };
+
+  const EFFECT_SOUND_SET = new Set<string>([
+    'explosion',
+    'heal',
+    'revive',
+    'stun',
+    'scream066',
+    'pull',
+    'portal',
+    'tesla',
+    'blink',
+    'place',
+    'collect',
+    'door',
+    'horde',
+    'alert',
+  ]);
+
   for (const tower of s.towers) {
+    if (tower.hp <= 0 || towersToRemove.has(tower.id)) continue;
+    const def = getTowerDef(tower.type);
+    if (!def) continue;
+
+    if (def.regenHpPerSec && tower.hp < tower.maxHp) {
+      tower.hp = Math.min(tower.maxHp, tower.hp + def.regenHpPerSec * dt);
+    }
+    if (def.shieldRegenPerSec) {
+      const maxSh =
+        def.maxShieldHp ?? def.shieldOnDeploy ?? Math.round(tower.maxHp * 0.5);
+      if (maxSh > 0) {
+        tower.shieldHp = Math.min(maxSh, (tower.shieldHp ?? 0) + def.shieldRegenPerSec * dt);
+        if (!tower.shieldColor && def.shieldColor) tower.shieldColor = def.shieldColor;
+      }
+    }
+
     if (
-      tower.hp <= 0 ||
-      towersToRemove.has(tower.id) ||
       tower.suppressed ||
       tower.stunTimer > 0 ||
       tower.deafTimer > 0 ||
@@ -1456,9 +1768,6 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
     ) {
       continue;
     }
-
-    const def = getTowerDef(tower.type);
-    if (!def) continue;
 
     const tileMods = getTileModifiersAt(s, tower.row, tower.col);
     let tileFireMult = 1;
@@ -1488,6 +1797,9 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
             fromSky: false,
           });
         }
+        if (def.particles?.onAttack) {
+          emitSimParticles(s, def.particles.onAttack, tower.row, tower.col);
+        }
       }
     } else if (def.healAmount && def.healInterval) {
       tower.actionTimer += dt * (tower.customFireRateMult ?? 1) * gmTowerFireRate * tileFireMult * ruleTowerFireMult;
@@ -1515,6 +1827,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
             timer: 0,
             duration: 0.5,
           });
+          emitSimParticles(s, def.particles?.onAttack ?? 'heal_pulse', tower.row, tower.col);
           soundEngine.playHeal();
         }
       }
@@ -1526,7 +1839,10 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           enemyOccupiesRow(enemy, tower.row) &&
           Math.abs(enemy.col - tower.col) <= 0.48
         ) {
-          applyMitigatedEnemyDamage(s, enemy, dps * dt, tower.id, false);
+          applyMitigatedEnemyDamage(s, enemy, dps * dt, tower.id, false, {
+            damageType: def.damageType,
+            armorPenetration: def.armorPenetration,
+          });
         }
       }
     } else if (def.armTime !== undefined && def.explosionDamage) {
@@ -1543,14 +1859,16 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
             Math.abs(e.col - tower.col) <= 0.48
         );
         if (trigger) {
+          const expCols = def.explosionRadiusCols ?? 1.2;
+          const expRows = def.explosionRadiusRows ?? 0;
           const blastDmg = Math.round(
             (def.explosionDamage ?? 420) * (tower.customDamageMult ?? 1) * gmTowerDamage * tileDmgMult * ruleTowerDmgMult
           );
           for (const enemy of s.enemies) {
             if (
               enemy.skyOffsetRows <= 0.3 &&
-              enemyOccupiesRow(enemy, tower.row) &&
-              Math.abs(enemy.col - tower.col) <= 1.2
+              enemy.occupiedRows.some((r) => Math.abs(r - tower.row) <= expRows) &&
+              Math.abs(enemy.col - tower.col) <= expCols
             ) {
               if (hasEnemyImmunity(enemy.type, 'explosion', enemy)) {
                 s.effects.push({
@@ -1564,7 +1882,13 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
                   color: '#84CC16',
                 });
               } else {
-                applyMitigatedEnemyDamage(s, enemy, blastDmg, tower.id, true);
+                applyMitigatedEnemyDamage(s, enemy, blastDmg, tower.id, true, {
+                  damageType: def.damageType ?? 'explosion',
+                  armorPenetration: def.armorPenetration,
+                });
+                if (def.stunDuration && !hasEnemyImmunity(enemy.type, 'stun', enemy)) {
+                  enemy.stunTimer = Math.max(enemy.stunTimer ?? 0, def.stunDuration);
+                }
               }
             }
           }
@@ -1586,18 +1910,24 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
             text: `-${blastDmg}`,
             color: '#F59E0B',
           });
-          soundEngine.playExplosion();
+          emitSimParticles(s, def.particles?.onDeath ?? 'explosion_mine', tower.row, tower.col);
+          if (def.soundOnDeath && EFFECT_SOUND_SET.has(def.soundOnDeath)) {
+            playEffectSound(def.soundOnDeath as EffectSoundKey);
+          } else {
+            soundEngine.playExplosion();
+          }
           towersToRemove.add(tower.id);
         }
       }
     } else if (def.aoeTargets && def.fireRate && def.damage) {
       if (tower.hypnotized) continue;
+      const aoeRows = def.aoeRadiusRows ?? 1;
+      const aoeCols = def.aoeRadiusCols ?? 1.45;
       const nearbyEnemies = s.enemies.filter(
         (e) =>
-          e.hp > 0 &&
-          e.skyOffsetRows <= 0.3 &&
-          e.occupiedRows.some((r) => Math.abs(r - tower.row) <= 1) &&
-          Math.abs(e.col - tower.col) <= 1.45
+          isEnemyTargetable(e) &&
+          e.occupiedRows.some((r) => Math.abs(r - tower.row) <= aoeRows) &&
+          Math.abs(e.col - tower.col) <= aoeCols
       );
       if (nearbyEnemies.length > 0) {
         const speedFactor =
@@ -1610,14 +1940,72 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
         if (tower.actionTimer >= def.fireRate) {
           tower.actionTimer = 0;
           const maxTargets = def.aoeTargets;
-          const dmg = def.damage * (tower.customDamageMult ?? 1) * gmTowerDamage * tileDmgMult * ruleTowerDmgMult;
-          const targets = nearbyEnemies.slice(0, maxTargets);
+          const baseDmg = def.damage * (tower.customDamageMult ?? 1) * gmTowerDamage * tileDmgMult * ruleTowerDmgMult;
+          const targets = sortTargetEnemies(nearbyEnemies, tower.col, def.targetPriority).slice(
+            0,
+            maxTargets
+          );
+          const towerAttackEffects = [...(def.effects ?? []), ...(def.onAttackEffects ?? [])];
+          triggerDeclarativeHooks(
+            s,
+            'on_attack',
+            'tower',
+            tower,
+            towerAttackEffects,
+            towersToRemove,
+            declarativeSpawns,
+            nextSimId,
+            targets[0],
+            undefined,
+            hasEnemyImmunity
+          );
+          const towerHitEffects = [...(def.effects ?? []), ...(def.onHitEffects ?? [])];
+          const totalLifesteal = (def.lifestealRatio ?? 0) + (tower.customLifesteal ?? 0);
+
           for (const tgt of targets) {
-            const dealt = applyMitigatedEnemyDamage(s, tgt, dmg, tower.id, true);
-            if (tower.customLifesteal && dealt > 0) {
-              tower.hp = Math.min(tower.maxHp, tower.hp + dealt * tower.customLifesteal);
+            let finalDmg = baseDmg;
+            if (def.bonusDamageToBoss && isBossEnemy(tgt)) {
+              finalDmg *= 1 + def.bonusDamageToBoss;
             }
-            triggerProjectileDeclarativeHits(s, def.effects, tgt, nextSimId, hasEnemyImmunity, tower);
+            if (def.critChance && Math.random() < def.critChance) {
+              finalDmg *= def.critMultiplier ?? 1.75;
+              s.effects.push({
+                id: nextSimId('fx'),
+                kind: 'text',
+                row: tgt.row,
+                col: tgt.col,
+                timer: 0,
+                duration: 0.45,
+                text: '¡CRÍTICO!',
+                color: '#FBBF24',
+              });
+            }
+            const dealt = applyMitigatedEnemyDamage(s, tgt, finalDmg, tower.id, true, {
+              damageType: def.damageType ?? 'electric',
+              armorPenetration: def.armorPenetration,
+            });
+            if (totalLifesteal > 0 && dealt > 0) {
+              tower.hp = Math.min(tower.maxHp, tower.hp + dealt * totalLifesteal);
+            }
+            if (def.knockbackCols && tgt.hp > 0) {
+              const resist = getEnemyDef(tgt.type)?.behavior?.knockbackResist ?? 0;
+              const push = Math.max(0, def.knockbackCols * (1 - Math.min(1, resist)));
+              if (push > 0) tgt.col = Math.min(s.gridCols - 0.15, tgt.col + push);
+            }
+            if (def.stunDuration && !hasEnemyImmunity(tgt.type, 'stun', tgt)) {
+              tgt.stunTimer = Math.max(tgt.stunTimer ?? 0, def.stunDuration);
+            }
+            if (def.silenceDuration && !hasEnemyImmunity(tgt.type, 'silence', tgt)) {
+              tgt.silenceTimer = Math.max(tgt.silenceTimer ?? 0, def.silenceDuration);
+            }
+            triggerProjectileDeclarativeHits(
+              s,
+              towerHitEffects,
+              tgt,
+              nextSimId,
+              hasEnemyImmunity,
+              tower
+            );
             s.effects.push({
               id: nextSimId('fx'),
               kind: 'tesla_arc',
@@ -1628,31 +2016,52 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
               timer: 0,
               duration: 0.22,
             });
+            if (def.particles?.onHit) {
+              emitSimParticles(s, def.particles.onHit, tgt.row, tgt.col);
+            }
           }
-          soundEngine.playTeslaArc();
+          emitSimParticles(s, def.particles?.onAttack ?? 'attack_tesla', tower.row, tower.col);
+          if (def.soundOnAttack && EFFECT_SOUND_SET.has(def.soundOnAttack)) {
+            playEffectSound(def.soundOnAttack as EffectSoundKey);
+          } else {
+            soundEngine.playTeslaArc();
+          }
         }
       }
     } else if (def.projectileKind && def.fireRate && def.damage) {
       if (tower.hypnotized) continue;
 
       const maxRange = def.maxRangeCols ?? s.gridCols + 0.5;
-      const hasTarget =
+      const rowReach = def.canTargetRows ?? 0;
+      const minCol = def.attackBehind ? tower.col - maxRange : tower.col - 0.2;
+      const maxCol = tower.col + maxRange;
+
+      const frontEnemy = s.enemies.some(
+        (e) =>
+          isEnemyTargetable(e) &&
+          e.occupiedRows.some((r) => Math.abs(r - tower.row) <= rowReach) &&
+          e.col >= tower.col - 0.2 &&
+          e.col <= maxCol
+      );
+      const backEnemy =
+        def.attackBehind &&
         s.enemies.some(
           (e) =>
-            e.skyOffsetRows <= 0.3 &&
-            enemyOccupiesRow(e, tower.row) &&
-            e.col >= tower.col - 0.2 &&
-            e.col <= tower.col + maxRange
-        ) ||
-        s.obstacles.some(
-          (ob) =>
-            ob.destructible &&
-            ob.blocksProjectiles &&
-            ob.row === tower.row &&
-            ob.col >= tower.col + 0.2 &&
-            ob.col <= tower.col + maxRange
+            isEnemyTargetable(e) &&
+            e.occupiedRows.some((r) => Math.abs(r - tower.row) <= rowReach) &&
+            e.col < tower.col - 0.2 &&
+            e.col >= minCol
         );
-      if (hasTarget) {
+      const hasObstacle = s.obstacles.some(
+        (ob) =>
+          ob.destructible &&
+          ob.blocksProjectiles &&
+          Math.abs(ob.row - tower.row) <= rowReach &&
+          ob.col >= tower.col + 0.2 &&
+          ob.col <= maxCol
+      );
+
+      if (frontEnemy || backEnemy || hasObstacle) {
         const speedFactor =
           (tower.radioProtected ? radioBoost : 1) *
           (tower.customFireRateMult ?? 1) *
@@ -1665,32 +2074,94 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           tower.recoil = 1;
           const kind = def.projectileKind;
           const bursts = def.burstCount ?? 1;
+          const projCount = Math.max(1, def.projectileCountPerShot ?? 1);
+          const rowSpread = def.projectileRowSpread ?? 0;
+          const fireDir: 1 | -1 = !frontEnemy && !hasObstacle && backEnemy ? -1 : 1;
           const baseProjSpeed = def.projectileSpeed ?? gp.projectileSpeeds[kind] ?? 6.4;
           const projSpeed = baseProjSpeed * (tower.customProjSpeedMult ?? 1);
-          const dmg = def.damage * (tower.customDamageMult ?? 1) * gmTowerDamage * tileDmgMult * ruleTowerDmgMult;
+          const dmg =
+            def.damage *
+            (tower.customDamageMult ?? 1) *
+            gmTowerDamage *
+            tileDmgMult *
+            ruleTowerDmgMult;
+          const projDesign = DESIGN_CATALOG.projectiles[kind];
+          const trailPreset =
+            def.particles?.projectileTrail ??
+            projDesign?.trailParticleId ??
+            (PARTICLES_CATALOG[`trail_${kind}`] ? `trail_${kind}` : undefined);
+          const impactPreset =
+            def.particles?.onHit ?? projDesign?.impactParticleId;
+          const hasPierce = Boolean(def.passThrough || (def.pierceCount && def.pierceCount > 0));
+          const combinedProjEffects = [...(def.effects ?? []), ...(def.onHitEffects ?? [])];
 
           for (let b = 0; b < bursts; b++) {
-            s.projectiles.push({
-              id: nextSimId('proj'),
-              row: tower.row,
-              col: tower.col + 0.35 + b * 0.24,
-              originCol: tower.col,
-              maxRangeCols: def.maxRangeCols,
-              splashRadius: def.splashRadius,
-              speed: projSpeed,
-              damage: dmg,
-              kind,
-              slowFactor: def.slowFactor ?? (kind === 'cryo' ? EFFECTS_CATALOG.cryo_slow?.slowFactor : undefined),
-              slowDuration: def.slowDuration ?? (kind === 'cryo' ? EFFECTS_CATALOG.cryo_slow?.durationSec : undefined),
-              burnDps: def.burnDps ?? (kind === 'pyro' ? EFFECTS_CATALOG.thermal_burn?.burnDps : undefined),
-              burnDuration: def.burnDuration ?? (kind === 'pyro' ? EFFECTS_CATALOG.thermal_burn?.durationSec : undefined),
-              effectIds: def.effects,
-              sourceTowerType: def.type,
-              sourceTowerId: tower.id,
-              passThrough: def.passThrough,
-              hitEnemyIds: def.passThrough ? [] : undefined,
-            });
+            for (let pIdx = 0; pIdx < projCount; pIdx++) {
+              const offsetRatio = projCount === 1 ? 0 : pIdx / (projCount - 1) - 0.5;
+              const projRow = Math.max(
+                0,
+                Math.min(s.gridRows - 1, Math.round(tower.row + offsetRatio * rowSpread * 2))
+              );
+              s.projectiles.push({
+                id: nextSimId('proj'),
+                row: projRow,
+                col: tower.col + fireDir * (0.35 + b * 0.24),
+                originCol: tower.col,
+                direction: fireDir,
+                maxRangeCols: def.maxRangeCols,
+                splashRadius: def.splashRadius,
+                speed: projSpeed,
+                damage: dmg,
+                damageType: def.damageType,
+                armorPenetration: def.armorPenetration,
+                critChance: def.critChance,
+                critMultiplier: def.critMultiplier,
+                bonusDamageToBoss: def.bonusDamageToBoss,
+                kind,
+                slowFactor:
+                  def.slowFactor ??
+                  (kind === 'cryo' ? EFFECTS_CATALOG.cryo_slow?.slowFactor : undefined),
+                slowDuration:
+                  def.slowDuration ??
+                  (kind === 'cryo' ? EFFECTS_CATALOG.cryo_slow?.durationSec : undefined),
+                burnDps:
+                  def.burnDps ??
+                  (kind === 'pyro' ? EFFECTS_CATALOG.thermal_burn?.burnDps : undefined),
+                burnDuration:
+                  def.burnDuration ??
+                  (kind === 'pyro' ? EFFECTS_CATALOG.thermal_burn?.durationSec : undefined),
+                knockbackCols: def.knockbackCols,
+                stunDuration: def.stunDuration,
+                silenceDuration: def.silenceDuration,
+                effectIds: combinedProjEffects.length > 0 ? combinedProjEffects : undefined,
+                sourceTowerType: def.type,
+                sourceTowerId: tower.id,
+                passThrough: def.passThrough,
+                remainingPierce: def.pierceCount,
+                hitEnemyIds: hasPierce ? [] : undefined,
+                chainBounceCount: def.chainBounceCount,
+                chainBounceRangeCols: def.chainBounceRangeCols,
+                chainDamageDecay: def.chainDamageDecay,
+                trailParticleId: trailPreset,
+                impactParticleId: impactPreset,
+                trailTimer: 0,
+              });
+            }
           }
+
+          triggerDeclarativeHooks(
+            s,
+            'on_attack',
+            'tower',
+            tower,
+            [...(def.effects ?? []), ...(def.onAttackEffects ?? [])],
+            towersToRemove,
+            declarativeSpawns,
+            nextSimId,
+            undefined,
+            undefined,
+            hasEnemyImmunity
+          );
 
           s.effects.push({
             id: nextSimId('fx'),
@@ -1700,7 +2171,23 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
             timer: 0,
             duration: 0.12,
           });
-          soundEngine.playShot(kind);
+
+          const attackPreset =
+            def.particles?.onAttack ??
+            (PARTICLES_CATALOG[`attack_${kind}`] ? `attack_${kind}` : 'attack_standard');
+          emitSimParticles(s, attackPreset, tower.row, tower.col, {
+            angleOffsetDeg: fireDir === -1 ? 180 : 0,
+          });
+
+          if (def.soundOnAttack) {
+            if (EFFECT_SOUND_SET.has(def.soundOnAttack)) {
+              playEffectSound(def.soundOnAttack as EffectSoundKey);
+            } else {
+              soundEngine.playShot(def.soundOnAttack);
+            }
+          } else {
+            soundEngine.playShot(kind);
+          }
         }
       } else {
         tower.actionTimer = Math.min(
@@ -1714,13 +2201,22 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
   // 7. Move projectiles, apply tile projectile modifiers, resolve doors/obstacles & enemy hits
   const projectilesToRemove = new Set<string>();
   for (const proj of s.projectiles) {
-    proj.col += proj.speed * dt;
+    proj.col += (proj.direction ?? 1) * proj.speed * dt;
     if (
+      proj.col < -0.4 ||
       proj.col > s.gridCols + 0.4 ||
-      (proj.maxRangeCols !== undefined && proj.col - proj.originCol > proj.maxRangeCols)
+      (proj.maxRangeCols !== undefined && Math.abs(proj.col - proj.originCol) > proj.maxRangeCols)
     ) {
       projectilesToRemove.add(proj.id);
       continue;
+    }
+
+    if (proj.trailParticleId) {
+      proj.trailTimer = (proj.trailTimer ?? 0) + dt;
+      if (proj.trailTimer >= 0.055) {
+        proj.trailTimer = 0;
+        emitSimParticles(s, proj.trailParticleId, proj.row, proj.col);
+      }
     }
 
     // Apply Tile Modifiers to flying projectiles (ignite, chill, pierce, damage boost)
@@ -1809,12 +2305,14 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
     for (const enemy of s.enemies) {
       if (proj.hitEnemyIds && proj.hitEnemyIds.includes(enemy.id)) continue;
       if (
-        enemy.skyOffsetRows <= 0.3 &&
+        isEnemyTargetable(enemy) &&
         enemyOccupiesRow(enemy, proj.row) &&
-        enemy.hp > 0 &&
         Math.abs(enemy.col - proj.col) <= 0.36
       ) {
-        if (!hitEnemy || enemy.col < hitEnemy.col) {
+        if (
+          !hitEnemy ||
+          ((proj.direction ?? 1) === 1 ? enemy.col < hitEnemy.col : enemy.col > hitEnemy.col)
+        ) {
           hitEnemy = enemy;
         }
       }
@@ -1824,12 +2322,21 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
       const sourceTower = proj.sourceTowerId
         ? s.towers.find((t) => t.id === proj.sourceTowerId)
         : undefined;
+      const sourceDef = sourceTower ? getTowerDef(sourceTower.type) : undefined;
+      const totalLifesteal =
+        (sourceDef?.lifestealRatio ?? 0) + (sourceTower?.customLifesteal ?? 0);
+
+      let rollDmg = proj.damage;
+      let didCrit = false;
+      if (proj.critChance && Math.random() < proj.critChance) {
+        rollDmg *= proj.critMultiplier ?? 1.75;
+        didCrit = true;
+      }
 
       if (proj.splashRadius) {
         for (const target of s.enemies) {
           if (
-            target.skyOffsetRows <= 0.3 &&
-            target.hp > 0 &&
+            isEnemyTargetable(target) &&
             target.occupiedRows.some((r) => Math.abs(r - hitEnemy!.row) <= 1) &&
             Math.abs(target.col - hitEnemy.col) <= proj.splashRadius
           ) {
@@ -1845,9 +2352,23 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
                 color: '#84CC16',
               });
             } else {
-              const dealt = applyMitigatedEnemyDamage(s, target, proj.damage, proj.sourceTowerId, true);
-              if (sourceTower?.customLifesteal && dealt > 0) {
-                sourceTower.hp = Math.min(sourceTower.maxHp, sourceTower.hp + dealt * sourceTower.customLifesteal);
+              const tgtDmg =
+                proj.bonusDamageToBoss && isBossEnemy(target)
+                  ? rollDmg * (1 + proj.bonusDamageToBoss)
+                  : rollDmg;
+              const dealt = applyMitigatedEnemyDamage(
+                s,
+                target,
+                tgtDmg,
+                proj.sourceTowerId,
+                true,
+                {
+                  damageType: proj.damageType ?? 'explosion',
+                  armorPenetration: proj.armorPenetration,
+                }
+              );
+              if (sourceTower && totalLifesteal > 0 && dealt > 0) {
+                sourceTower.hp = Math.min(sourceTower.maxHp, sourceTower.hp + dealt * totalLifesteal);
               }
             }
           }
@@ -1864,7 +2385,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
               proj.sourceTowerType && ob.counterTowerTypes?.includes(proj.sourceTowerType)
                 ? ob.counterDamageMultiplier
                 : 1;
-            ob.hp -= proj.damage * mult;
+            ob.hp -= rollDmg * mult;
             ob.hitFlash = 0.45;
             if (ob.hp <= 0) {
               destroyBoardObstacleInSim(s, ob, true);
@@ -1879,11 +2400,61 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           timer: 0,
           duration: 0.38,
         });
+        emitSimParticles(s, proj.impactParticleId ?? 'explosion_grenade', hitEnemy.row, hitEnemy.col);
         soundEngine.playExplosion();
       } else {
-        const dealt = applyMitigatedEnemyDamage(s, hitEnemy, proj.damage, proj.sourceTowerId, true);
-        if (sourceTower?.customLifesteal && dealt > 0) {
-          sourceTower.hp = Math.min(sourceTower.maxHp, sourceTower.hp + dealt * sourceTower.customLifesteal);
+        const singleDmg =
+          proj.bonusDamageToBoss && isBossEnemy(hitEnemy)
+            ? rollDmg * (1 + proj.bonusDamageToBoss)
+            : rollDmg;
+        const dealt = applyMitigatedEnemyDamage(
+          s,
+          hitEnemy,
+          singleDmg,
+          proj.sourceTowerId,
+          true,
+          {
+            damageType: proj.damageType,
+            armorPenetration: proj.armorPenetration,
+          }
+        );
+        if (sourceTower && totalLifesteal > 0 && dealt > 0) {
+          sourceTower.hp = Math.min(sourceTower.maxHp, sourceTower.hp + dealt * totalLifesteal);
+        }
+        const singleImpact =
+          proj.impactParticleId ??
+          (PARTICLES_CATALOG[`impact_${proj.kind}`] ? `impact_${proj.kind}` : 'impact_standard');
+        emitSimParticles(s, singleImpact, hitEnemy.row, hitEnemy.col);
+      }
+
+      if (didCrit) {
+        s.effects.push({
+          id: nextSimId('fx'),
+          kind: 'text',
+          row: hitEnemy.row,
+          col: hitEnemy.col,
+          timer: 0,
+          duration: 0.45,
+          text: '¡CRÍTICO!',
+          color: '#FBBF24',
+        });
+      }
+
+      if (proj.knockbackCols && hitEnemy.hp > 0) {
+        const resist = getEnemyDef(hitEnemy.type)?.behavior?.knockbackResist ?? 0;
+        const push = Math.max(0, proj.knockbackCols * (1 - Math.min(1, resist)));
+        if (push > 0) {
+          hitEnemy.col = Math.min(s.gridCols - 0.15, hitEnemy.col + push);
+        }
+      }
+      if (proj.stunDuration && hitEnemy.hp > 0) {
+        if (!hasEnemyImmunity(hitEnemy.type, 'stun', hitEnemy)) {
+          hitEnemy.stunTimer = Math.max(hitEnemy.stunTimer ?? 0, proj.stunDuration);
+        }
+      }
+      if (proj.silenceDuration && hitEnemy.hp > 0) {
+        if (!hasEnemyImmunity(hitEnemy.type, 'silence', hitEnemy)) {
+          hitEnemy.silenceTimer = Math.max(hitEnemy.silenceTimer ?? 0, proj.silenceDuration);
         }
       }
 
@@ -1937,6 +2508,52 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           });
         }
       }
+
+      if (proj.chainBounceCount && proj.chainBounceCount > 0) {
+        const range = proj.chainBounceRangeCols ?? 2.2;
+        const decay = proj.chainDamageDecay ?? 0.72;
+        const visited = new Set<string>([hitEnemy.id]);
+        let currentSource: Enemy = hitEnemy;
+        let chainDmg = rollDmg * decay;
+        for (let b = 0; b < proj.chainBounceCount; b++) {
+          const nextTarget = s.enemies
+            .filter(
+              (cand) =>
+                !visited.has(cand.id) &&
+                isEnemyTargetable(cand) &&
+                Math.hypot(cand.col - currentSource.col, cand.row - currentSource.row) <= range
+            )
+            .sort(
+              (a, bCand) =>
+                Math.hypot(a.col - currentSource.col, a.row - currentSource.row) -
+                Math.hypot(bCand.col - currentSource.col, bCand.row - currentSource.row)
+            )[0];
+          if (!nextTarget) break;
+          visited.add(nextTarget.id);
+          applyMitigatedEnemyDamage(s, nextTarget, chainDmg, proj.sourceTowerId, true, {
+            damageType: proj.damageType,
+            armorPenetration: proj.armorPenetration,
+          });
+          s.effects.push({
+            id: nextSimId('fx'),
+            kind: 'beam',
+            row: currentSource.row,
+            col: currentSource.col,
+            targetRow: nextTarget.row,
+            targetCol: nextTarget.col,
+            timer: 0,
+            duration: 0.22,
+            color: '#38BDF8',
+            lineWidth: 2.5,
+          });
+          if (proj.impactParticleId) {
+            emitSimParticles(s, proj.impactParticleId, nextTarget.row, nextTarget.col);
+          }
+          currentSource = nextTarget;
+          chainDmg *= decay;
+        }
+      }
+
       if (proj.effectIds && proj.effectIds.length > 0) {
         triggerProjectileDeclarativeHits(
           s,
@@ -1947,7 +2564,15 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           sourceTower
         );
       }
-      if (proj.passThrough) {
+
+      if (proj.remainingPierce !== undefined && proj.remainingPierce > 0) {
+        proj.remainingPierce -= 1;
+        proj.hitEnemyIds = proj.hitEnemyIds ?? [];
+        proj.hitEnemyIds.push(hitEnemy.id);
+        if (proj.remainingPierce <= 0 && !proj.passThrough) {
+          projectilesToRemove.add(proj.id);
+        }
+      } else if (proj.passThrough) {
         proj.hitEnemyIds = proj.hitEnemyIds ?? [];
         proj.hitEnemyIds.push(hitEnemy.id);
       } else {
@@ -1970,7 +2595,13 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
   const radioDeaf066 = EFFECTS_CATALOG.scream_066?.radioReducedSec ?? 3.0;
   const pocketCfg = EFFECTS_CATALOG.pocket_106;
 
-  const convertedSpawns: Array<{ row: number; col: number }> = [];
+  const convertedSpawns: Array<{
+    row: number;
+    col: number;
+    type: EnemyType;
+    hpMultiplier?: number;
+    particlePresetId?: string;
+  }> = [];
   const vaseSpawns: Array<{ row: number; col: number }> = [];
 
   for (const enemy of s.enemies) {
@@ -1980,6 +2611,23 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
 
     enemy.animPhase += dt;
     if (enemy.hitFlash > 0) enemy.hitFlash = Math.max(0, enemy.hitFlash - dt * 4);
+    if (behavior?.regenHpPerSec && enemy.hp < enemy.maxHp) {
+      enemy.hp = Math.min(enemy.maxHp, enemy.hp + behavior.regenHpPerSec * dt);
+    }
+    if (behavior?.shieldRegenPerSec && behavior.initialShieldHp) {
+      enemy.shieldHp = Math.min(
+        behavior.initialShieldHp,
+        (enemy.shieldHp ?? 0) + behavior.shieldRegenPerSec * dt
+      );
+      if (!enemy.shieldColor && behavior.shieldColor) enemy.shieldColor = behavior.shieldColor;
+    }
+    if (def?.particles?.trail && enemy.skyOffsetRows <= 0.3) {
+      enemy.trailParticleTimer = (enemy.trailParticleTimer ?? 0) - dt;
+      if (enemy.trailParticleTimer <= 0) {
+        enemy.trailParticleTimer = def.particles.trailIntervalSec ?? 0.25;
+        emitSimParticles(s, def.particles.trail, enemy.row, enemy.col);
+      }
+    }
     if (enemy.slowTimer > 0) {
       enemy.slowTimer = Math.max(0, enemy.slowTimer - dt);
       if (enemy.slowTimer === 0) enemy.slowFactor = 0;
@@ -2261,6 +2909,232 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
       enemy.currentSpeed = Math.min(maxSpd, enemy.currentSpeed + accel * dt);
     }
 
+    // Generic programmable Enrage on low HP / column
+    if (behavior?.enrageOnLowHp && !isSilenced) {
+      const cfgE = behavior.enrageOnLowHp;
+      if (enemy.genericEnrageConvulseTimer && enemy.genericEnrageConvulseTimer > 0) {
+        enemy.genericEnrageConvulseTimer -= dt;
+        if (enemy.genericEnrageConvulseTimer <= 0) {
+          if (cfgE.newHp) {
+            enemy.maxHp = cfgE.newHp;
+            enemy.hp = Math.min(enemy.hp, cfgE.newHp);
+          }
+          if (cfgE.speedMultiplier) {
+            enemy.baseSpeed *= cfgE.speedMultiplier;
+            enemy.currentSpeed *= cfgE.speedMultiplier;
+          }
+          if (cfgE.dpsMultiplier) {
+            enemy.dps *= cfgE.dpsMultiplier;
+          }
+          if (cfgE.badge) {
+            enemy.customBadge = {
+              label: cfgE.badge,
+              color: cfgE.color ?? '#EF4444',
+              textColor: cfgE.color ?? '#FCA5A5',
+            };
+          }
+          if (cfgE.color) enemy.customTintColor = cfgE.color;
+          s.effects.push({
+            id: nextSimId('fx'),
+            kind: 'text',
+            row: enemy.row,
+            col: enemy.col,
+            timer: 0,
+            duration: 0.9,
+            text: cfgE.badge ?? '¡FURIA!',
+            color: cfgE.color ?? '#EF4444',
+          });
+        }
+        continue;
+      } else if (!enemy.genericEnrageTriggered) {
+        const hpHit = enemy.hp / Math.max(1, enemy.maxHp) <= cfgE.hpRatio;
+        const colHit = cfgE.triggerCol === undefined || enemy.col <= cfgE.triggerCol;
+        if (hpHit && colHit) {
+          enemy.genericEnrageTriggered = true;
+          if (cfgE.stunRadiusRow !== undefined || cfgE.stunRadiusCol !== undefined || cfgE.stunSec) {
+            const radR = cfgE.stunRadiusRow ?? 1;
+            const radC = cfgE.stunRadiusCol ?? 1;
+            const sDur = cfgE.stunSec ?? 2.2;
+            for (const t of s.towers) {
+              if (!t.immuneToPsych && Math.abs(t.row - enemy.row) <= radR && Math.abs(t.col - enemy.col) <= radC) {
+                t.stunTimer = Math.max(t.stunTimer, sDur);
+              }
+            }
+            s.effects.push({
+              id: nextSimId('fx'),
+              kind: 'stun_wave',
+              row: enemy.row,
+              col: enemy.col,
+              timer: 0,
+              duration: 0.65,
+            });
+          }
+          if (cfgE.particlePresetId) {
+            emitSimParticles(s, cfgE.particlePresetId, enemy.row, enemy.col);
+          }
+          if (cfgE.sound) {
+            playEffectSound(cfgE.sound as EffectSoundKey);
+          }
+          if (cfgE.convulseSec && cfgE.convulseSec > 0) {
+            enemy.genericEnrageConvulseTimer = cfgE.convulseSec;
+            enemy.isAttacking = false;
+            continue;
+          } else {
+            if (cfgE.newHp) {
+              enemy.maxHp = cfgE.newHp;
+              enemy.hp = Math.min(enemy.hp, cfgE.newHp);
+            }
+            if (cfgE.speedMultiplier) {
+              enemy.baseSpeed *= cfgE.speedMultiplier;
+              enemy.currentSpeed *= cfgE.speedMultiplier;
+            }
+            if (cfgE.dpsMultiplier) {
+              enemy.dps *= cfgE.dpsMultiplier;
+            }
+            if (cfgE.badge) {
+              enemy.customBadge = {
+                label: cfgE.badge,
+                color: cfgE.color ?? '#EF4444',
+                textColor: cfgE.color ?? '#FCA5A5',
+              };
+            }
+            if (cfgE.color) enemy.customTintColor = cfgE.color;
+          }
+        }
+      }
+    }
+
+    // Generic periodic lane hop
+    if (behavior?.laneHopIntervalSec && !isSilenced && !enemy.isAttacking) {
+      enemy.laneHopTimer = (enemy.laneHopTimer ?? behavior.laneHopIntervalSec) - dt;
+      if (enemy.laneHopTimer <= 0) {
+        enemy.laneHopTimer = behavior.laneHopIntervalSec;
+        const span = enemy.occupiedRows.length;
+        const candidates = [-1, 1].filter((delta) => {
+          const nextMin = Math.min(...enemy.occupiedRows) + delta;
+          const nextMax = Math.max(...enemy.occupiedRows) + delta;
+          return nextMin >= 0 && nextMax < s.gridRows;
+        });
+        if (candidates.length > 0) {
+          let chosenDelta = candidates[Math.floor(Math.random() * candidates.length)];
+          if (behavior.laneHopMode === 'toward_towers' || behavior.laneHopMode === 'avoid_towers') {
+            const scoreRow = (delta: number) => {
+              const targetR = enemy.row + delta;
+              return s.towers.filter(
+                (t) => !towersToRemove.has(t.id) && t.row === targetR && t.col <= enemy.col
+              ).length;
+            };
+            candidates.sort((a, b) =>
+              behavior.laneHopMode === 'toward_towers'
+                ? scoreRow(b) - scoreRow(a)
+                : scoreRow(a) - scoreRow(b)
+            );
+            chosenDelta = candidates[0];
+          }
+          enemy.row += chosenDelta;
+          enemy.occupiedRows = Array.from({ length: span }, (_, idx) => enemy.row + idx);
+        }
+      }
+    }
+
+    // Generic periodic summon
+    if (behavior?.summonPeriodic && !isSilenced) {
+      const spCfg = behavior.summonPeriodic;
+      enemy.summonPeriodicTimer = (enemy.summonPeriodicTimer ?? spCfg.intervalSec) - dt;
+      if (enemy.summonPeriodicTimer <= 0) {
+        enemy.summonPeriodicTimer = spCfg.intervalSec;
+        const aliveCount = s.enemies.filter((e) => e.type === spCfg.type && e.hp > 0).length;
+        const maxAlive = spCfg.maxAlive ?? 99;
+        const cnt = Math.min(spCfg.count ?? 1, Math.max(0, maxAlive - aliveCount));
+        if (cnt > 0) {
+          if (spCfg.particlePresetId) {
+            emitSimParticles(s, spCfg.particlePresetId, enemy.row, enemy.col);
+          }
+          if (spCfg.sound) {
+            playEffectSound(spCfg.sound as EffectSoundKey);
+          }
+          for (let i = 0; i < cnt; i++) {
+            const spread = spCfg.rowSpread ?? 0;
+            const rOff = spread > 0 ? Math.floor(Math.random() * (spread * 2 + 1)) - spread : 0;
+            const targetR = Math.max(0, Math.min(s.gridRows - 1, enemy.row + rOff));
+            const spawnC = Math.max(
+              0.3,
+              Math.min(s.gridCols - 0.15, enemy.col + (spCfg.offsetCol ?? -0.25) - i * 0.15)
+            );
+            spawnEnemyAt(s, spCfg.type, { row: targetR, occupiedRows: [targetR] }, spawnC, undefined, {
+              hpMultiplier: spCfg.hpMultiplier,
+              speedMultiplier: spCfg.speedMultiplier,
+              dpsMultiplier: spCfg.dpsMultiplier,
+            });
+          }
+        }
+      }
+    }
+
+    // Generic ranged attack against towers
+    if (behavior?.rangedAttack && !isSilenced) {
+      const ra = behavior.rangedAttack;
+      enemy.rangedAttackTimer = (enemy.rangedAttackTimer ?? ra.intervalSec) - dt;
+      if (enemy.rangedAttackTimer <= 0) {
+        const span = ra.rowSpan ?? 0;
+        const targets = s.towers
+          .filter(
+            (t) =>
+              !towersToRemove.has(t.id) &&
+              t.hp > 0 &&
+              enemy.occupiedRows.some((r) => Math.abs(t.row - r) <= span) &&
+              t.col <= enemy.col &&
+              enemy.col - t.col <= ra.rangeCols
+          )
+          .sort((a, b) => b.col - a.col);
+        const target = targets[0];
+        if (target) {
+          enemy.rangedAttackTimer = ra.intervalSec;
+          const rDmg = ra.damage * (enemy.customDamageMult ?? 1) * gmEnemyDamage;
+          if (ra.splashRadius) {
+            for (const ally of s.towers) {
+              if (
+                !towersToRemove.has(ally.id) &&
+                ally.hp > 0 &&
+                Math.abs(ally.row - target.row) <= 1 &&
+                Math.abs(ally.col - target.col) <= ra.splashRadius
+              ) {
+                applyMitigatedTowerDamage(s, ally, rDmg, towersToRemove, enemy, true);
+                if (ra.stunSec && !ally.immuneToPsych) {
+                  ally.stunTimer = Math.max(ally.stunTimer, ra.stunSec);
+                }
+                if (ally.hp <= 0) towersToRemove.add(ally.id);
+              }
+            }
+          } else {
+            applyMitigatedTowerDamage(s, target, rDmg, towersToRemove, enemy, true);
+            if (ra.stunSec && !target.immuneToPsych) {
+              target.stunTimer = Math.max(target.stunTimer, ra.stunSec);
+            }
+            if (target.hp <= 0) towersToRemove.add(target.id);
+          }
+          s.effects.push({
+            id: nextSimId('fx'),
+            kind: 'beam',
+            row: enemy.row,
+            col: enemy.col,
+            targetRow: target.row,
+            targetCol: target.col,
+            timer: 0,
+            duration: 0.26,
+            color: ra.beamColor ?? '#F43F5E',
+            lineWidth: 3,
+          });
+          emitSimParticles(s, ra.particlePresetId ?? 'attack_scp_ranged', target.row, target.col);
+          if (ra.sound) {
+            playEffectSound(ra.sound as EffectSoundKey);
+          }
+        } else {
+          enemy.rangedAttackTimer = Math.min(0.25, ra.intervalSec);
+        }
+      }
+    }
+
     // Find all blocking towers across all occupiedRows (important for 2-lane SCP-682!)
     const blockers = s.towers.filter((t) => {
       if (
@@ -2277,9 +3151,15 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
       return enemy.col - t.col <= 0.44 && enemy.col - t.col >= -0.25;
     });
 
+    const hpMissingRatio = Math.max(0, Math.min(1, 1 - enemy.hp / Math.max(1, enemy.maxHp)));
+    const hpLowSpeedScale = behavior?.speedScaleAsHpDrops
+      ? 1 + behavior.speedScaleAsHpDrops.maxBonusMultiplier * hpMissingRatio
+      : 1;
+
     const speedMult =
       (enemy.slowTimer > 0 ? 1 - enemy.slowFactor : 1) *
       (enemy.customSpeedMult ?? 1) *
+      hpLowSpeedScale *
       gmEnemySpeed *
       tileSlowMult *
       tileSpeedBoostMult;
@@ -2302,7 +3182,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
         blockingObstacle.hp -= enemy.dps * speedMult * dmgMult * dt;
         blockingObstacle.hitFlash = Math.max(blockingObstacle.hitFlash, 0.25);
         if (blockingObstacle.hp <= 0) {
-          destroyBoardObstacleInSim(s, blockingObstacle, true);
+          destroyBoardObstacleInSim(s, blockingObstacle, true, true);
         }
       }
     } else if (blockers.length > 0) {
@@ -2326,6 +3206,12 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
         primaryBlocker.hp = 0;
         primaryBlocker.shieldHp = 0;
         towersToRemove.add(primaryBlocker.id);
+        if (def?.particles?.onAttack) {
+          emitSimParticles(s, def.particles.onAttack, primaryBlocker.row, primaryBlocker.col);
+        }
+        if (def?.particles?.onKill) {
+          emitSimParticles(s, def.particles.onKill, primaryBlocker.row, primaryBlocker.col);
+        }
         triggerDeclarativeHooks(
           s,
           'on_kill',
@@ -2340,6 +3226,16 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           hasEnemyImmunity
         );
 
+        if (behavior.onKillConvertTo) {
+          convertedSpawns.push({
+            row: primaryBlocker.row,
+            col: primaryBlocker.col,
+            type: behavior.onKillConvertTo.type,
+            hpMultiplier: behavior.onKillConvertTo.hpMultiplier,
+            particlePresetId: behavior.onKillConvertTo.particlePresetId,
+          });
+        }
+
         if (behavior.disappearOnHit) {
           soundEngine.playBounceImpact018();
           s.effects.push({
@@ -2350,6 +3246,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
             timer: 0,
             duration: 0.45,
           });
+          emitSimParticles(s, 'bounce_impact_018', primaryBlocker.row, primaryBlocker.col);
           s.effects.push({
             id: nextSimId('fx'),
             kind: 'text',
@@ -2372,6 +3269,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
             timer: 0,
             duration: 0.65,
           });
+          emitSimParticles(s, 'pocket_portal', primaryBlocker.row, primaryBlocker.col);
           s.effects.push({
             id: nextSimId('fx'),
             kind: 'text',
@@ -2427,6 +3325,9 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
 
           if (blocker.hp <= 0) {
             towersToRemove.add(blocker.id);
+            if (def?.particles?.onKill) {
+              emitSimParticles(s, def.particles.onKill, blocker.row, blocker.col);
+            }
             triggerDeclarativeHooks(
               s,
               'on_kill',
@@ -2440,8 +3341,20 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
               blocker,
               hasEnemyImmunity
             );
-            if (enemy.type === 'scp_049') {
-              convertedSpawns.push({ row: blocker.row, col: blocker.col });
+            if (behavior?.onKillConvertTo) {
+              convertedSpawns.push({
+                row: blocker.row,
+                col: blocker.col,
+                type: behavior.onKillConvertTo.type,
+                hpMultiplier: behavior.onKillConvertTo.hpMultiplier,
+                particlePresetId: behavior.onKillConvertTo.particlePresetId,
+              });
+            } else if (enemy.type === 'scp_049') {
+              convertedSpawns.push({
+                row: blocker.row,
+                col: blocker.col,
+                type: 'scp_049_2',
+              });
             }
           }
         }
@@ -2462,11 +3375,11 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
         if (enemy.blinkMoveTimer <= 0) {
           enemy.blinkMoveTimer = hasPartnerOnRow
             ? behavior.blinkJump.paranoiaIntervalSec ?? 5.0
-            : moveInterval173;
+            : behavior.blinkJump.intervalSec ?? moveInterval173;
           const jumpDist =
             hasPartnerOnRow || enemy.slowTimer > 0
               ? behavior.blinkJump.paranoiaCells ?? 1
-              : moveCells173;
+              : behavior.blinkJump.cells ?? moveCells173;
           const desiredCol = enemy.col - jumpDist;
 
           const pathBlocker = s.towers
@@ -2499,8 +3412,11 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
       }
     }
 
-    // Emergency Tesla Gates check (handles both 1-lane and 2-lane enemies)
-    if (enemy.col <= -0.15) {
+    // Emergency Tesla Gates check (handles both 1-lane and 2-lane enemies & custom breachCol)
+    const customBreachCol = s.victoryCondition?.breachCol;
+    const gateTriggerCol = customBreachCol !== undefined ? customBreachCol + 0.15 : -0.15;
+    const defeatCol = customBreachCol !== undefined ? customBreachCol : -0.3;
+    if (enemy.col <= gateTriggerCol) {
       const enemyGates = enemy.occupiedRows
         .map((r) => s.gates[r])
         .filter((g): g is EmergencyGate => Boolean(g));
@@ -2511,19 +3427,29 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
         availableGate.available = false;
         availableGate.firingTimer = gp.teslaGate.firingDurationSec;
         availableGate.sweepCol = 0;
+        s.teslaGatesUsedCount += 1;
         soundEngine.playTesla();
         s.announcement = `Puerta Tesla de la fila ${availableGate.row + 1} activada.`;
         s.announcementTimer = 3.5;
-      } else if (!activeGate && enemy.col <= -0.3) {
+      } else if (!activeGate && enemy.col <= defeatCol) {
+        s.defeatReason = 'Un SCP cruzó la línea de contención sin puerta Tesla disponible.';
+        finalizeObjectivesOnOutcome(s, false);
         soundEngine.playGameOver();
         return 'GAME_OVER';
       }
     }
   }
 
-  // Spawn SCP-049-2 from any tower killed by SCP-049
+  // Spawn converted enemies from kills (SCP-049 or JSON behavior.onKillConvertTo)
   for (const conv of convertedSpawns) {
-    spawnEnemyAt(s, 'scp_049_2', { row: conv.row, occupiedRows: [conv.row] }, conv.col);
+    spawnEnemyAt(
+      s,
+      conv.type,
+      { row: conv.row, occupiedRows: [conv.row] },
+      conv.col,
+      undefined,
+      conv.hpMultiplier ? { hpMultiplier: conv.hpMultiplier } : undefined
+    );
     s.effects.push({
       id: nextSimId('fx'),
       kind: 'revive_ring',
@@ -2532,6 +3458,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
       timer: 0,
       duration: 0.6,
     });
+    emitSimParticles(s, conv.particlePresetId ?? 'revive_plague', conv.row, conv.col);
     s.effects.push({
       id: nextSimId('fx'),
       kind: 'text',
@@ -2539,7 +3466,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
       col: conv.col,
       timer: 0,
       duration: 0.95,
-      text: 'SCP-049-2',
+      text: getEnemyDef(conv.type)?.code ?? String(conv.type).toUpperCase(),
       color: '#4ADE80',
     });
     soundEngine.playRevive();
@@ -2580,13 +3507,18 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
   if (towersToRemove.size > 0) {
     for (const t of s.towers) {
       if (towersToRemove.has(t.id)) {
+        s.towersLostCount += 1;
         const tDef = getTowerDef(t.type);
+        emitSimParticles(s, tDef?.particles?.onDeath ?? 'death_tower', t.row, t.col);
+        if (tDef?.soundOnDeath) {
+          playEffectSound(tDef.soundOnDeath as EffectSoundKey);
+        }
         triggerDeclarativeHooks(
           s,
           'on_death',
           'tower',
           t,
-          tDef?.effects,
+          [...(tDef?.effects ?? []), ...(tDef?.onDeathEffects ?? [])],
           towersToRemove,
           postDeathSpawns,
           nextSimId,
@@ -2594,6 +3526,42 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           undefined,
           hasEnemyImmunity
         );
+        if (tDef?.onDeathExplosionDamage) {
+          const rad = tDef.onDeathExplosionRadius ?? 1.3;
+          for (const enemy of s.enemies) {
+            if (
+              enemy.hp > 0 &&
+              enemy.skyOffsetRows <= 0.3 &&
+              enemy.occupiedRows.some((r) => Math.abs(r - t.row) <= 1) &&
+              Math.abs(enemy.col - t.col) <= rad
+            ) {
+              applyMitigatedEnemyDamage(
+                s,
+                enemy,
+                tDef.onDeathExplosionDamage,
+                t.id,
+                true,
+                { damageType: 'explosion' }
+              );
+            }
+          }
+          emitSimParticles(s, 'explosion_mine', t.row, t.col);
+          soundEngine.playExplosion();
+        }
+        if (tDef?.onDeathTriggerEventId) {
+          const resolvedEv = resolveEventDefinition(tDef.onDeathTriggerEventId);
+          if (resolvedEv) {
+            executeLevelEvent(
+              s,
+              resolvedEv,
+              nextSimId,
+              spawnEnemyAt,
+              hasEnemyImmunity,
+              { row: t.row, col: t.col },
+              EVENT_ENGINE_CALLBACKS
+            );
+          }
+        }
       }
     }
     s.towers = s.towers.filter((t) => !towersToRemove.has(t.id));
@@ -2614,6 +3582,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           timer: 0,
           duration: 0.55,
         });
+        emitSimParticles(s, 'revive_plague', enemy.row, enemy.col);
         s.effects.push({
           id: nextSimId('fx'),
           kind: 'text',
@@ -2639,6 +3608,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           timer: 0,
           duration: 0.55,
         });
+        emitSimParticles(s, 'revive_plague', enemy.row, enemy.col);
         s.effects.push({
           id: nextSimId('fx'),
           kind: 'text',
@@ -2653,6 +3623,27 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
         survivingEnemies.push(enemy);
       } else {
         const eDef = getEnemyDef(enemy.type);
+        const eBehavior = eDef?.behavior;
+        if (eBehavior?.rewardsEnergyOnKill) {
+          s.energy += eBehavior.rewardsEnergyOnKill;
+          if (s.rules?.energyCap !== undefined) {
+            s.energy = Math.min(s.rules.energyCap, s.energy);
+          }
+          s.effects.push({
+            id: nextSimId('fx'),
+            kind: 'text',
+            row: enemy.row,
+            col: enemy.col,
+            timer: 0,
+            duration: 0.85,
+            text: `+${eBehavior.rewardsEnergyOnKill} EN`,
+            color: '#FBBF24',
+          });
+        }
+        emitSimParticles(s, eDef?.particles?.onDeath ?? 'death_scp', enemy.row, enemy.col);
+        if (eDef?.soundOnDeath) {
+          playEffectSound(eDef.soundOnDeath as EffectSoundKey);
+        }
         const enemyAllEffects = [...(eDef?.effects ?? []), ...(enemy.extraEffects ?? [])];
         triggerDeclarativeHooks(
           s,
@@ -2667,6 +3658,65 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           undefined,
           hasEnemyImmunity
         );
+
+        if (eBehavior?.onDeathSplit) {
+          const spl = eBehavior.onDeathSplit;
+          const cnt = Math.max(1, spl.count);
+          const spread = spl.spreadRows ?? 0;
+          if (spl.particlePresetId) {
+            emitSimParticles(s, spl.particlePresetId, enemy.row, enemy.col);
+          }
+          for (let i = 0; i < cnt; i++) {
+            const offR = spread > 0 ? Math.floor(Math.random() * (spread * 2 + 1)) - spread : 0;
+            const r = Math.max(0, Math.min(s.gridRows - 1, enemy.row + offR));
+            const c = Math.max(0.2, Math.min(s.gridCols - 0.15, enemy.col + (i - (cnt - 1) / 2) * 0.18));
+            spawnEnemyAt(
+              s,
+              spl.type,
+              { row: r, occupiedRows: [r] },
+              c,
+              undefined,
+              spl.hpMultiplier ? { hpMultiplier: spl.hpMultiplier } : undefined
+            );
+          }
+        }
+
+        if (eBehavior?.onDeathExplosion) {
+          const exCfg = eBehavior.onDeathExplosion;
+          const radR = exCfg.radiusRows ?? 1;
+          for (const t of s.towers) {
+            if (
+              !towersToRemove.has(t.id) &&
+              t.hp > 0 &&
+              Math.abs(t.row - enemy.row) <= radR &&
+              Math.abs(t.col - enemy.col) <= exCfg.radiusCols
+            ) {
+              applyMitigatedTowerDamage(s, t, exCfg.damage, towersToRemove, enemy, true);
+              if (exCfg.stunSec && !t.immuneToPsych) {
+                t.stunTimer = Math.max(t.stunTimer, exCfg.stunSec);
+              }
+              if (t.hp <= 0) towersToRemove.add(t.id);
+            }
+          }
+          emitSimParticles(s, exCfg.particlePresetId ?? 'explosion_mine', enemy.row, enemy.col);
+          playEffectSound((exCfg.sound ?? 'explosion') as EffectSoundKey);
+        }
+
+        if (eBehavior?.onDeathTriggerEventId) {
+          const resolvedEv = resolveEventDefinition(eBehavior.onDeathTriggerEventId);
+          if (resolvedEv) {
+            executeLevelEvent(
+              s,
+              resolvedEv,
+              nextSimId,
+              spawnEnemyAt,
+              hasEnemyImmunity,
+              { row: enemy.row, col: enemy.col },
+              EVENT_ENGINE_CALLBACKS
+            );
+          }
+        }
+
         if (enemy.lastHitByTowerId) {
           const killerTower = s.towers.find((t) => t.id === enemy.lastHitByTowerId);
           if (killerTower) {
@@ -2692,6 +3742,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
           s.announcementTimer = 4.0;
         }
         s.kills += 1;
+        s.killsByEnemyType[enemy.type] = (s.killsByEnemyType[enemy.type] ?? 0) + 1;
       }
     } else {
       survivingEnemies.push(enemy);
@@ -2721,6 +3772,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
         text: `+${drop.amount}`,
         color: '#FBBF24',
       });
+      emitSimParticles(s, 'energy_collect', drop.yRow, drop.xCol);
       soundEngine.playCollect();
       continue;
     }
@@ -2734,7 +3786,7 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
     s.energy = Math.min(s.rules.energyCap, Math.max(0, s.energy));
   }
 
-  // 12. Visual Effects (including particle motion)
+  // 12. Visual Effects & Reusable Particle System
   const cellSize = GAME_CONFIG.boardLayout.cellSize;
   s.effects = s.effects.filter((fx) => {
     fx.timer += dt;
@@ -2744,6 +3796,97 @@ export function stepSimulation(s: SimState, dt: number): SimOutcome {
     }
     return fx.timer < fx.duration;
   });
+  s.particleSystem.step(dt, cellSize);
+
+  // 13. Re-evaluate objectives & victory after tick movement/combat
+  const lateObjRes = stepObjectives(s);
+  if (lateObjRes.failedReason) {
+    s.defeatReason = lateObjRes.failedReason;
+    finalizeObjectivesOnOutcome(s, false);
+    soundEngine.playGameOver();
+    return 'GAME_OVER';
+  }
+
+  if (evaluateVictoryCondition(s)) {
+    finalizeObjectivesOnOutcome(s, true);
+    soundEngine.playVictory();
+    return 'VICTORY';
+  }
 
   return 'PLAYING';
+}
+
+function countFilteredVictoryKills(s: SimState, vc?: LevelVictoryCondition): number {
+  const types = vc?.targetEnemyTypes;
+  if (!types || types.length === 0) return s.kills;
+  return types.reduce((acc, t) => acc + (s.killsByEnemyType[t] ?? 0), 0);
+}
+
+function evaluateVictoryCondition(s: SimState): boolean {
+  const vc = s.victoryCondition;
+  const mode = vc?.mode ?? 'standard';
+  if (mode === 'endless') return false;
+
+  if (!arePrimaryObjectivesCompleted(s)) return false;
+
+  if (mode === 'survive_time') {
+    const targetSec = vc?.targetSeconds ?? s.levelConfig.durationSeconds;
+    if (s.levelTimer < targetSec) return false;
+    return vc?.requireClearAfter ? s.enemies.length === 0 : true;
+  }
+
+  if (mode === 'kill_count') {
+    const targetKills = vc?.targetKills ?? 25;
+    if (countFilteredVictoryKills(s, vc) < targetKills) return false;
+    return vc?.requireClearAfter ? s.enemies.length === 0 : true;
+  }
+
+  if (mode === 'survive_and_kill') {
+    const targetSec = vc?.targetSeconds ?? s.levelConfig.durationSeconds;
+    const targetKills = vc?.targetKills ?? 25;
+    if (s.levelTimer < targetSec || countFilteredVictoryKills(s, vc) < targetKills) {
+      return false;
+    }
+    return vc?.requireClearAfter ? s.enemies.length === 0 : true;
+  }
+
+  if (mode === 'destroy_obstacles') {
+    const kind = vc?.obstacleKind;
+    const remaining = s.obstacles.filter((o) => !kind || o.kind === kind).length;
+    const destroyed = kind ? (s.obstaclesDestroyedByKind[kind] ?? 0) : s.obstacleDestroyedCount;
+    const target = vc?.targetObstacles;
+    const met =
+      target !== undefined
+        ? destroyed >= target
+        : remaining === 0 && (destroyed > 0 || (s.levelConfig.obstacles ?? []).length === 0);
+    if (!met) return false;
+    return vc?.requireClearAfter ? s.enemies.length === 0 : true;
+  }
+
+  if (mode === 'objectives_only') {
+    if (s.objectives.length > 0) {
+      return arePrimaryObjectivesCompleted(s) && (!vc?.requireClearAfter || s.enemies.length === 0);
+    }
+    const allSpawned =
+      s.spawnedIndices.size >= s.timeline.length && s.pendingStaggeredSpawns.length === 0;
+    return allSpawned && s.enemies.length === 0;
+  }
+
+  if (mode === 'boss_hunt') {
+    const bosses = vc?.targetEnemyTypes ?? [];
+    const allSpawned =
+      s.spawnedIndices.size >= s.timeline.length && s.pendingStaggeredSpawns.length === 0;
+    if (bosses.length === 0) {
+      return allSpawned && s.enemies.length === 0;
+    }
+    const bossAlive = s.enemies.some((e) => bosses.includes(e.type) && e.hp > 0);
+    const bossKilled = bosses.some((b) => (s.killsByEnemyType[b] ?? 0) > 0);
+    if (bossAlive || (!bossKilled && !allSpawned)) return false;
+    return vc?.requireClearAfter ? s.enemies.length === 0 : true;
+  }
+
+  // 'standard'
+  const allSpawned =
+    s.spawnedIndices.size >= s.timeline.length && s.pendingStaggeredSpawns.length === 0;
+  return allSpawned && s.enemies.length === 0;
 }

@@ -1,0 +1,26 @@
+{
+  "type": "scp_018",
+  "code": "SCP-018",
+  "name": "Súper Pelota",
+  "classification": "Euclid · Rebote Instakill",
+  "hp": 50,
+  "speed": 0.35,
+  "dps": 9999,
+  "scoreValue": 115,
+  "portrait": "/src/assets/images/scp-018.jpg",
+  "summary": "Bola de 50 de vida que rebota en su carril acelerando cada vez más. Al golpear con una torre la destruye al instante y desaparece.",
+  "tacticalNote": "Derríbala rápido con fuego directo o sacrifícale una unidad económica antes de que alcance tu retaguardia.",
+  "effects": [
+    "bounce_018"
+  ],
+  "announcement": "¡SCP-018 rebotando! Acelera sin parar e instakill al chocar con una torre.",
+  "behavior": {
+    "laneSpan": 1,
+    "instakillTower": true,
+    "disappearOnHit": true,
+    "bounceAccel": {
+      "accelPerSec": 0.28,
+      "maxSpeed": 3.4
+    }
+  }
+}

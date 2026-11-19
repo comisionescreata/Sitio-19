@@ -1,0 +1,24 @@
+{
+  "type": "scp_035",
+  "code": "SCP-035",
+  "name": "La Máscara Posesiva",
+  "classification": "Keter · Hipnosis Global",
+  "hp": 270,
+  "speed": 0.23,
+  "dps": 28,
+  "scoreValue": 100,
+  "portrait": "/src/assets/images/scp-035.webp",
+  "summary": "Hipnotiza a las torres ofensivas para que no ataquen, excepto si usan la Torre de Radio en 3x3.",
+  "tacticalNote": "Coloca Torres de Radio cubriendo a tus tiradores en bloques de 3x3.",
+  "effects": [
+    "hypnosis",
+    "radio_3x3"
+  ],
+  "announcement": "SCP-035 activo: hipnotiza torres salvo dentro de una Radio (3x3).",
+  "behavior": {
+    "laneSpan": 1,
+    "hypnosisGlobal": {
+      "effectId": "hypnosis"
+    }
+  }
+}

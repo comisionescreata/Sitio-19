@@ -1,0 +1,91 @@
+{
+  "id": "explosion_massive",
+  "name": "Explosión Crítica del Sector",
+  "description": "Detonación masiva multi-capa con onda expansiva secundaria y destello de pantalla.",
+  "category": "explosion",
+  "screenShake": 11,
+  "screenFlashRgb": "239, 68, 68",
+  "screenFlashAlpha": 0.35,
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#FFFFFF",
+        "#F59E0B"
+      ],
+      "count": 1,
+      "durationSec": 0.52,
+      "sizePx": 22,
+      "ringExpandPx": 115,
+      "strokeWidth": 7,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "ring",
+      "colors": [
+        "#EF4444"
+      ],
+      "count": 1,
+      "durationSec": 0.58,
+      "sizePx": 16,
+      "ringExpandPx": 95,
+      "strokeWidth": 4,
+      "delaySec": 0.1,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "circle",
+      "colors": [
+        "#FFFFFF",
+        "#FDE047",
+        "#F97316",
+        "#EF4444"
+      ],
+      "count": 28,
+      "durationSec": [
+        0.38,
+        0.68
+      ],
+      "sizePx": [
+        6,
+        13
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        90,
+        250
+      ],
+      "spreadDeg": 360,
+      "drag": 2.4,
+      "blendMode": "lighter",
+      "glowColor": "#EF4444",
+      "glowBlur": 14
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(30, 41, 59, 0.75)",
+        "rgba(71, 85, 105, 0.6)"
+      ],
+      "count": 14,
+      "durationSec": [
+        0.65,
+        1.05
+      ],
+      "sizePx": [
+        14,
+        24
+      ],
+      "sizeEndScale": 2.5,
+      "alphaStart": 0.7,
+      "alphaEnd": 0,
+      "speedPx": [
+        30,
+        90
+      ],
+      "spreadDeg": 360,
+      "gravityPx": -40,
+      "delaySec": 0.08
+    }
+  ]
+}

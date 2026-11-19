@@ -1,0 +1,67 @@
+{
+  "id": "attack_cryo",
+  "name": "Descarga Criogénica",
+  "description": "Cristales de hielo y bruma helada en cono frontal.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "shard",
+      "colors": [
+        "#67E8F9",
+        "#A5F3FC",
+        "#FFFFFF"
+      ],
+      "count": 8,
+      "durationSec": [
+        0.18,
+        0.34
+      ],
+      "sizePx": [
+        2.5,
+        4.5
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        65,
+        135
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 55,
+      "spinDegPerSec": [
+        -240,
+        240
+      ],
+      "drag": 3,
+      "offsetX": 22,
+      "blendMode": "lighter",
+      "glowColor": "#22D3EE",
+      "glowBlur": 6
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(165, 243, 252, 0.45)",
+        "rgba(103, 232, 249, 0.3)"
+      ],
+      "count": 4,
+      "durationSec": [
+        0.3,
+        0.45
+      ],
+      "sizePx": [
+        6,
+        11
+      ],
+      "sizeEndScale": 1.8,
+      "alphaStart": 0.45,
+      "alphaEnd": 0,
+      "speedPx": [
+        30,
+        60
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 45,
+      "offsetX": 22
+    }
+  ]
+}

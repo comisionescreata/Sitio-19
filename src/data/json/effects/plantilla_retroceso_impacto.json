@@ -1,0 +1,30 @@
+{
+  "id": "plantilla_retroceso_impacto",
+  "engineMode": "declarative",
+  "isTemplate": true,
+  "category": "combat",
+  "kind": "custom_knockback",
+  "name": "Plantilla: Impacto Repulsor",
+  "description": "Cada impacto empuja hacia atrás 0.8 casillas al enemigo y aplica 25% de ralentización por 2s.",
+  "trigger": "on_hit",
+  "targetSide": "opponents",
+  "areaShape": "single",
+  "durationSec": 2,
+  "chance": 1,
+  "cooldownSec": 0.4,
+  "color": "#60A5FA",
+  "badgeLabel": "EMPUJE",
+  "modifiers": {
+    "knockbackCols": 0.8,
+    "slowFactor": 0.25,
+    "respectImmunity": "slow"
+  },
+  "visual": {
+    "waveKind": "ring",
+    "waveColorRgb": "96, 165, 250",
+    "waveRadiusPx": 38,
+    "waveDurationSec": 0.35,
+    "floatingText": "¡ATRAS!",
+    "floatingTextColor": "#93C5FD"
+  }
+}

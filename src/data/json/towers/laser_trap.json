@@ -1,0 +1,13 @@
+{
+  "type": "laser_trap",
+  "name": "Rejilla Láser",
+  "category": "estructura",
+  "cost": 100,
+  "cooldown": 8,
+  "maxHp": 260,
+  "unlockLevel": 8,
+  "roleLabel": "Suelo · 34 daño/s",
+  "description": "Placa de suelo transitable que quema continuamente a todo SCP sobre su casilla.",
+  "floorTrapDps": 34,
+  "passThrough": true
+}

@@ -1,0 +1,29 @@
+{
+  "id": "plantilla_pulso_aturdimiento",
+  "engineMode": "declarative",
+  "isTemplate": true,
+  "category": "trigger",
+  "kind": "custom_stun_pulse",
+  "name": "Plantilla: Pulso Eléctrico Aturdidor",
+  "description": "Cada 7s emite una onda en 3x3 que inflige 40 de daño y aturde 2s a los objetivos.",
+  "trigger": "periodic",
+  "targetSide": "opponents",
+  "areaShape": "square",
+  "radiusCells": 1,
+  "initialDelaySec": 3,
+  "intervalSec": 7,
+  "durationSec": 2,
+  "color": "#38BDF8",
+  "badgeLabel": "ATURD.",
+  "modifiers": {
+    "damageInstant": 40,
+    "stunSec": 2,
+    "respectImmunity": "stun"
+  },
+  "visual": {
+    "waveKind": "stun_wave",
+    "floatingText": "¡ATURDIDO!",
+    "floatingTextColor": "#38BDF8",
+    "sound": "tesla"
+  }
+}

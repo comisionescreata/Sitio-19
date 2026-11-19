@@ -1,0 +1,15 @@
+{
+  "id": "no_scp_past_col_4",
+  "title": "Contención Avanzada (Col. 4)",
+  "description": "Impide que cualquier SCP supere la columna 4.",
+  "category": "fail_condition",
+  "kind": "no_enemy_past_col",
+  "col": 4,
+  "ignoreSkyFalling": true,
+  "failOnViolate": true,
+  "showBoundaryLine": true,
+  "boundaryColor": "#F97316",
+  "boundaryLabel": "LÍMITE COL 4",
+  "failReason": "¡Un SCP superó la línea de contención de la columna 4!",
+  "color": "#F97316"
+}

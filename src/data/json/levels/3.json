@@ -1,0 +1,51 @@
+{
+  "level": 3,
+  "title": "Sector 1: Cuidado con la velocidad",
+  "description": "Una pelota que aumenta su velocidad cada rebote, que puede salir mal?",
+  "coverImage": "/src/assets/images/scp-018.jpg",
+  "startingEnergy": 200,
+  "maxDeckSlots": 6,
+  "rewardLabel": null,
+  "grid": {
+    "rows": 4,
+    "cols": 9
+  },
+  "events": [
+    {
+      "time": 12,
+      "type": "scp_008"
+    },
+    {
+      "time": 6,
+      "type": "scp_008"
+    },
+    {
+      "time": 9,
+      "type": "scp_018"
+    },
+    {
+      "time": 2,
+      "type": "scp_008",
+      "count": 2
+    },
+    {
+      "time": 9,
+      "type": "scp_008",
+      "count": 3
+    },
+    {
+      "time": 7,
+      "type": "scp_008",
+      "count": 3
+    },
+    {
+      "time": 0,
+      "type": "scp_018",
+      "count": 2
+    }
+  ],
+  "environment": {
+    "weather": "ash",
+    "weatherColor": "#8a8a8a"
+  }
+}

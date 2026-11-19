@@ -1,0 +1,19 @@
+{
+  "type": "scp_939",
+  "code": "SCP-939",
+  "name": "Con Muchas Voces",
+  "classification": "Keter · Manada de 3",
+  "hp": 225,
+  "speed": 0.33,
+  "dps": 40,
+  "scoreValue": 55,
+  "portrait": "/src/assets/images/939.jpg",
+  "summary": "Mayor salud y daño que SCP-008. Siempre irrumpen en grupos coordinados de 3 por el mapa.",
+  "tacticalNote": "Refuerza varios carriles a la vez con Barricadas, Escopeteros y Agentes Criogénicos.",
+  "effects": [],
+  "announcement": "Grupo de 3 SCP-939 ingresando al sector.",
+  "behavior": {
+    "laneSpan": 1,
+    "defaultPackCount": 3
+  }
+}

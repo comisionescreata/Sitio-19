@@ -35,7 +35,9 @@ function saveCompletedLevels(levels: number[]) {
 
 export default function App() {
   const [screen, setScreen] = useState<'title' | 'loadout' | 'game'>('title');
-  const [currentLevelNum, setCurrentLevelNum] = useState<number>(1);
+  const [currentLevelNum, setCurrentLevelNum] = useState<number>(
+    () => LEVEL_CATALOG[0]?.level ?? 1
+  );
   const [completedLevels, setCompletedLevels] = useState<number[]>(loadCompletedLevels);
   const [freePlayAllUnlocked, setFreePlayAllUnlocked] = useState(false);
   const [adminUnlockedUpTo, setAdminUnlockedUpTo] = useState<number | null>(null);
@@ -157,11 +159,15 @@ export default function App() {
     setFreePlayAllUnlocked(false);
     setAdminUnlockedUpTo(null);
     setAdminUnlockAllTowers(false);
-    setCurrentLevelNum(1);
+    setCurrentLevelNum(LEVEL_CATALOG[0]?.level ?? 1);
   }, []);
 
   const handleNextLevel = useCallback(() => {
-    const nextLvl = Math.min(LEVEL_CATALOG.length, currentLevelNum + 1);
+    const idx = LEVEL_CATALOG.findIndex((l) => l.level === currentLevelNum);
+    const nextLvl =
+      idx >= 0 && idx + 1 < LEVEL_CATALOG.length
+        ? LEVEL_CATALOG[idx + 1].level
+        : LEVEL_CATALOG[0]?.level ?? currentLevelNum;
     enterLevel(nextLvl);
   }, [currentLevelNum, enterLevel]);
 

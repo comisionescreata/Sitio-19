@@ -1,0 +1,37 @@
+{
+  "id": "attack_mtf",
+  "name": "Fogonazo MTF Epsilon-11",
+  "description": "Ráfaga cian-ámbar de alta velocidad.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "spark",
+      "colors": [
+        "#38BDF8",
+        "#FDE047",
+        "#FFFFFF"
+      ],
+      "count": 7,
+      "durationSec": [
+        0.12,
+        0.24
+      ],
+      "sizePx": [
+        2.2,
+        3.8
+      ],
+      "sizeEndScale": 0.1,
+      "speedPx": [
+        90,
+        185
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 38,
+      "drag": 4,
+      "offsetX": 24,
+      "blendMode": "lighter",
+      "glowColor": "#38BDF8",
+      "glowBlur": 6
+    }
+  ]
+}

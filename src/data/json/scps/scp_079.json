@@ -1,0 +1,32 @@
+{
+  "type": "scp_079",
+  "code": "SCP-079",
+  "name": "La Vieja IA",
+  "classification": "Euclid · Control de Puertas",
+  "hp": 1500,
+  "speed": 0,
+  "dps": 0,
+  "scoreValue": 240,
+  "portrait": "/src/assets/images/Scp_079.webp",
+  "summary": "Aparece del cielo (máximo 1 por nivel) con 1500 de vida y despliega 5 puertas entre columnas 5 a 9 que abren y cierran bloqueando disparos. Bajo 25% de vida abre 2 puertas más (7).",
+  "tacticalNote": "Aprovecha las ventanas abiertas y ataques de Bobina Tesla o Artilleros para destruir el núcleo.",
+  "effects": [
+    "doors_079"
+  ],
+  "announcement": "SCP-079 cae del cielo: desplegará 5 puertas entre columnas 5 a 9.",
+  "behavior": {
+    "laneSpan": 1,
+    "spawnRule": {
+      "mode": "sky",
+      "colRange": [
+        6.4,
+        7.8
+      ],
+      "maxPerLevel": 1
+    },
+    "doorController": {
+      "effectId": "doors_079",
+      "triggerHpRatio": 0.25
+    }
+  }
+}

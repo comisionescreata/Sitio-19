@@ -67,23 +67,34 @@ export function TitleScreen({
   const selectedLevel: LevelConfig =
     LEVEL_CATALOG.find((l) => l.level === selectedLevelNum) ?? LEVEL_CATALOG[0];
 
+  const selectedIndex = Math.max(
+    0,
+    LEVEL_CATALOG.findIndex((l) => l.level === selectedLevel.level)
+  );
   const totalLevels = LEVEL_CATALOG.length;
-  const highestCompleted = completedLevels.length > 0 ? Math.max(...completedLevels) : 0;
-  const maxReachableLevel = freePlayAllUnlocked
+  const maxReachableCount = freePlayAllUnlocked
     ? totalLevels
-    : Math.min(totalLevels, Math.max(highestCompleted + 1, adminUnlockedUpTo ?? 0));
+    : Math.min(totalLevels, Math.max(completedLevels.length + 1, adminUnlockedUpTo ?? 0));
+  const maxCompletedNum = completedLevels.length > 0 ? Math.max(...completedLevels) : 0;
+
+  const isLevelUnlocked = (idx: number, lvlNum: number) =>
+    freePlayAllUnlocked ||
+    idx + 1 <= maxReachableCount ||
+    lvlNum <= Math.max(maxCompletedNum + 1, adminUnlockedUpTo ?? 0) ||
+    completedLevels.includes(lvlNum);
 
   const previewEnemies = selectedLevel.enemiesPresent
     .map((type) => ENEMY_CATALOG.find((e) => e.type === type))
     .filter((e): e is NonNullable<typeof e> => Boolean(e));
 
-  const isSelectedUnlocked = selectedLevel.level <= maxReachableLevel;
+  const isSelectedUnlocked = isLevelUnlocked(selectedIndex, selectedLevel.level);
 
   const scrollToLevel = (lvlNum: number) => {
     setSelectedLevelNum(lvlNum);
     const el = trackScrollRef.current;
     if (!el) return;
-    const idx = lvlNum - 1;
+    const foundIdx = LEVEL_CATALOG.findIndex((l) => l.level === lvlNum);
+    const idx = foundIdx >= 0 ? foundIdx : 0;
     const targetX = Math.max(0, idx * NODE_SPACING + 90 - el.clientWidth / 2);
     el.scrollTo({ left: targetX, behavior: 'smooth' });
   };
@@ -91,7 +102,8 @@ export function TitleScreen({
   useEffect(() => {
     const el = trackScrollRef.current;
     if (!el) return;
-    const idx = selectedLevelNum - 1;
+    const foundIdx = LEVEL_CATALOG.findIndex((l) => l.level === selectedLevelNum);
+    const idx = foundIdx >= 0 ? foundIdx : 0;
     const targetX = Math.max(0, idx * NODE_SPACING + 90 - el.clientWidth / 2);
     el.scrollTo({ left: targetX });
   }, []);
@@ -187,21 +199,27 @@ export function TitleScreen({
                       <span className="text-rose-300">Sin Tesla</span>
                     </>
                   )}
-                  {selectedLevel.victoryCondition?.mode === 'survive_time' &&
-                    selectedLevel.victoryCondition.targetSeconds && (
+                  {selectedLevel.victoryCondition?.mode &&
+                    selectedLevel.victoryCondition.mode !== 'standard' && (
                       <>
                         <span aria-hidden="true">·</span>
                         <span className="text-cyan-300">
-                          Sobrevivir {selectedLevel.victoryCondition.targetSeconds}s
-                        </span>
-                      </>
-                    )}
-                  {selectedLevel.victoryCondition?.mode === 'kill_count' &&
-                    selectedLevel.victoryCondition.targetKills && (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <span className="text-cyan-300">
-                          Contener {selectedLevel.victoryCondition.targetKills} SCP
+                          {selectedLevel.victoryCondition.label ??
+                            (selectedLevel.victoryCondition.mode === 'survive_time'
+                              ? `Sobrevivir ${selectedLevel.victoryCondition.targetSeconds ?? selectedLevel.durationSeconds}s`
+                              : selectedLevel.victoryCondition.mode === 'kill_count'
+                              ? `Contener ${selectedLevel.victoryCondition.targetKills ?? 25} SCP`
+                              : selectedLevel.victoryCondition.mode === 'survive_and_kill'
+                              ? `Sobrevivir ${selectedLevel.victoryCondition.targetSeconds ?? selectedLevel.durationSeconds}s y contener ${selectedLevel.victoryCondition.targetKills ?? 25}`
+                              : selectedLevel.victoryCondition.mode === 'destroy_obstacles'
+                              ? 'Despejar obstáculos objetivo'
+                              : selectedLevel.victoryCondition.mode === 'boss_hunt'
+                              ? 'Cacería de objetivo prioritario'
+                              : selectedLevel.victoryCondition.mode === 'objectives_only'
+                              ? 'Victoria por objetivos'
+                              : selectedLevel.victoryCondition.mode === 'endless'
+                              ? 'Modo Infinito'
+                              : 'Estándar')}
                         </span>
                       </>
                     )}
@@ -212,6 +230,46 @@ export function TitleScreen({
                     </>
                   )}
                 </div>
+
+                {/* Level Objectives Summary */}
+                {selectedLevel.objectives && selectedLevel.objectives.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-slate-800 bg-[#11161D] p-2.5">
+                    <div className="mb-1.5 text-[11px] font-bold tracking-wide text-amber-300">
+                      Objetivos de la Misión ({selectedLevel.objectives.length})
+                    </div>
+                    <ul className="space-y-1">
+                      {selectedLevel.objectives.map((obj) => (
+                        <li
+                          key={obj.id}
+                          className="flex items-start justify-between gap-2 text-xs text-slate-300"
+                        >
+                          <span className="min-w-0">
+                            <span
+                              className={`mr-1.5 font-mono-num text-[10px] font-bold ${
+                                obj.category === 'fail_condition' || obj.failOnViolate
+                                  ? 'text-red-400'
+                                  : obj.category === 'primary' || obj.requiredForVictory
+                                  ? 'text-amber-400'
+                                  : 'text-sky-400'
+                              }`}
+                            >
+                              [
+                              {obj.category === 'fail_condition' || obj.failOnViolate
+                                ? 'LÍMITE'
+                                : obj.category === 'primary' || obj.requiredForVictory
+                                ? 'PRIMARIO'
+                                : obj.category === 'bonus'
+                                ? 'BONUS'
+                                : 'SECUNDARIO'}
+                              ]
+                            </span>
+                            {obj.description}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* Incoming SCPs Preview */}
                 <div className="mt-4 border-t border-slate-800 pt-3">
@@ -251,19 +309,22 @@ export function TitleScreen({
                   <Play className="h-4 w-4 fill-current" />
                   {isSelectedUnlocked
                     ? `Jugar Nivel ${selectedLevel.level}`
-                    : `Completa el Nivel ${selectedLevel.level - 1}`}
+                    : `Nivel ${selectedLevel.level} Bloqueado`}
                 </button>
               </div>
             </div>
 
-            <div className="relative min-h-[200px] bg-slate-900 lg:col-span-5">
+            <div className="relative min-h-[220px] bg-slate-900 lg:col-span-5">
               <img
-                src={SECTOR_BACKDROP_IMAGE}
-                alt="Corredor de contención subterráneo del Sitio-19"
+                src={selectedLevel.coverImage || SECTOR_BACKDROP_IMAGE}
+                alt={`Portada Nivel ${selectedLevel.level}: ${selectedLevel.title}`}
                 referrerPolicy="no-referrer"
                 className="h-full w-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#141A22] via-transparent to-transparent lg:via-[#141A22]/20" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#141A22] via-transparent to-transparent lg:via-[#141A22]/25" />
+              <div className="absolute right-3 bottom-3 rounded-md border border-slate-700/80 bg-[#0E1217]/85 px-2.5 py-1 text-[11px] font-semibold text-slate-200 backdrop-blur-xs">
+                Sector {selectedLevel.level} · {selectedLevel.gridCols}x{selectedLevel.gridRows}
+              </div>
             </div>
           </div>
         </section>
@@ -343,8 +404,9 @@ export function TitleScreen({
                   const mx = (x1 + x2) / 2;
                   const pathD = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
 
+                  const nextLvl = LEVEL_CATALOG[idx + 1];
                   const isPathDone = completedLevels.includes(lvl.level);
-                  const isPathReachable = lvl.level + 1 <= maxReachableLevel;
+                  const isPathReachable = nextLvl ? isLevelUnlocked(idx + 1, nextLvl.level) : false;
 
                   return (
                     <path
@@ -368,7 +430,7 @@ export function TitleScreen({
                 const y = getNodeY(idx);
                 const isSelected = lvl.level === selectedLevelNum;
                 const isCompleted = completedLevels.includes(lvl.level);
-                const isUnlocked = lvl.level <= maxReachableLevel;
+                const isUnlocked = isLevelUnlocked(idx, lvl.level);
                 const isMilestone = NEW_SCP_MILESTONES.has(lvl.level);
                 const labelBelow = idx % 2 === 0;
                 const shortReward = lvl.rewardLabel

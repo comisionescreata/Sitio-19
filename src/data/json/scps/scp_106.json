@@ -1,0 +1,24 @@
+{
+  "type": "scp_106",
+  "code": "SCP-106",
+  "name": "El Anciano",
+  "classification": "Keter · Instakill / Dimensión",
+  "hp": 800,
+  "speed": 0.11,
+  "dps": 9999,
+  "scoreValue": 185,
+  "portrait": "/src/assets/images/106.jpg",
+  "summary": "800 de vida, movimiento muy lento y muerte instantánea al contacto. Un Personal tiene 10% de volver tras 5–10s con 20% de vida e inmunidad psicológica (966/035). Ralentiza a SCP-173 en su fila a 1 salto cada 5s.",
+  "tacticalNote": "Detén su avance con Minas, Tiradores MTF y Especialistas Psiónicos antes de que toque tus defensas.",
+  "effects": [
+    "pocket_106"
+  ],
+  "announcement": "SCP-106 activo: muerte instantánea al contacto y ralentiza a SCP-173 en su fila.",
+  "behavior": {
+    "laneSpan": 1,
+    "instakillTower": true,
+    "pocketDimension": {
+      "effectId": "pocket_106"
+    }
+  }
+}

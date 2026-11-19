@@ -1,0 +1,21 @@
+{
+  "id": "cryo_slow",
+  "engineMode": "builtin",
+  "category": "status",
+  "kind": "slow",
+  "name": "Congelación Criogénica",
+  "description": "Reduce la velocidad enemiga un 45% durante 4s y acorta el salto de SCP-173 a 1 casilla.",
+  "trigger": "on_hit",
+  "targetSide": "enemies",
+  "areaShape": "single",
+  "slowFactor": 0.45,
+  "durationSec": 4,
+  "color": "#22D3EE",
+  "modifiers": {
+    "slowFactor": 0.45,
+    "respectImmunity": "slow"
+  },
+  "visual": {
+    "waveKind": "cryo_hit"
+  }
+}

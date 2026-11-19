@@ -1,0 +1,21 @@
+{
+  "id": "thermal_burn",
+  "engineMode": "builtin",
+  "category": "status",
+  "kind": "burn",
+  "name": "Quemadura Térmica",
+  "description": "Los disparos del Agente Incendiario queman al objetivo infligiendo 14 de daño por segundo durante 3s.",
+  "trigger": "on_hit",
+  "targetSide": "enemies",
+  "areaShape": "single",
+  "burnDps": 14,
+  "durationSec": 3,
+  "color": "#F97316",
+  "modifiers": {
+    "dotDps": 14,
+    "respectImmunity": "burn"
+  },
+  "visual": {
+    "waveKind": "burn_hit"
+  }
+}

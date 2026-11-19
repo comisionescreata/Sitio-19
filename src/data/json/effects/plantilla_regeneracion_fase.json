@@ -1,0 +1,28 @@
+{
+  "id": "plantilla_regeneracion_fase",
+  "engineMode": "declarative",
+  "isTemplate": true,
+  "category": "summon",
+  "kind": "custom_phase_regen",
+  "name": "Plantilla: Fase de Emergencia (<50% HP)",
+  "description": "Al bajar del 50% de vida se cura un 25% máximo y genera 1 unidad de refuerzo en su casilla.",
+  "trigger": "on_hp_below",
+  "targetSide": "self",
+  "areaShape": "self",
+  "hpThresholdRatio": 0.5,
+  "maxTriggers": 1,
+  "color": "#C084FC",
+  "badgeLabel": "FASE 2",
+  "modifiers": {
+    "healPercent": 0.25,
+    "spawnType": "scp_008",
+    "spawnCount": 1,
+    "spawnOffsetCol": 0.2
+  },
+  "visual": {
+    "waveKind": "revive_ring",
+    "floatingText": "¡FASE 2!",
+    "floatingTextColor": "#E879F9",
+    "sound": "revive"
+  }
+}

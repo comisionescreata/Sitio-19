@@ -1,0 +1,10 @@
+{
+  "id": "kill_15_scps",
+  "title": "Purga Táctica",
+  "description": "Contén al menos 15 entidades SCP.",
+  "category": "primary",
+  "kind": "kill_enemies",
+  "targetCount": 15,
+  "requiredForVictory": true,
+  "color": "#F43F5E"
+}

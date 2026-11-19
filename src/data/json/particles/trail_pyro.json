@@ -1,0 +1,34 @@
+{
+  "id": "trail_pyro",
+  "name": "Estela de Fuego",
+  "description": "Brasas suaves detrás de proyectiles incendiarios.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "circle",
+      "colors": [
+        "#F97316",
+        "#FDE047"
+      ],
+      "colorEnd": "#7C2D12",
+      "count": 2,
+      "durationSec": [
+        0.16,
+        0.26
+      ],
+      "sizePx": [
+        2.2,
+        3.8
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        10,
+        28
+      ],
+      "angleDeg": 180,
+      "spreadDeg": 50,
+      "gravityPx": -24,
+      "blendMode": "lighter"
+    }
+  ]
+}

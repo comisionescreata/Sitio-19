@@ -1,0 +1,24 @@
+{
+  "type": "scp_066",
+  "code": "SCP-066",
+  "name": "Juguete de Eric",
+  "classification": "Euclid · Grito 5x5",
+  "hp": 600,
+  "speed": 0.17,
+  "dps": 24,
+  "scoreValue": 140,
+  "portrait": "/src/assets/images/SCP-066.png",
+  "summary": "Se mueve lento con 600 de vida. Cada 10s su grito inhabilita torres en 5x5 durante 6 segundos (solo 3s si están protegidas por Radio).",
+  "tacticalNote": "Cubre tu defensa con Torres de Radio para reducir el ensordecimiento a 3s y frénalo con Criogénico o Psiónico.",
+  "effects": [
+    "scream_066",
+    "radio_3x3"
+  ],
+  "announcement": "SCP-066 activo: su grito cada 10s inhabilita 5x5 por 6s (3s con Radio).",
+  "behavior": {
+    "laneSpan": 1,
+    "screamArea": {
+      "effectId": "scream_066"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "explosion",
+  "engineMode": "builtin",
+  "category": "combat",
+  "kind": "blast",
+  "name": "Detonación de Brecha",
+  "description": "Explosión de la Mina de Brecha con 420 de daño o granadas tácticas de área (sin efecto sobre SCP-682).",
+  "trigger": "on_hit",
+  "targetSide": "enemies",
+  "areaShape": "square",
+  "radiusCells": 1,
+  "durationSec": 0.45,
+  "color": "#F59E0B",
+  "modifiers": {
+    "damageInstant": 420,
+    "respectImmunity": "explosion"
+  },
+  "visual": {
+    "waveKind": "explosion",
+    "sound": "explosion"
+  }
+}

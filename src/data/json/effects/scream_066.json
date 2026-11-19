@@ -1,0 +1,30 @@
+{
+  "id": "scream_066",
+  "engineMode": "builtin",
+  "category": "aura",
+  "kind": "scream_area",
+  "name": "Sinfonía de SCP-066 (5x5)",
+  "description": "Cada 10 segundos inhabilita en 5x5 durante 6 segundos. Dentro del área de una Torre de Radio, el efecto dura solo 3 segundos.",
+  "trigger": "periodic",
+  "targetSide": "towers",
+  "areaShape": "square",
+  "radiusCells": 2,
+  "screamIntervalSec": 10,
+  "deafDurationSec": 6,
+  "radioReducedSec": 3,
+  "color": "#E11D48",
+  "badgeLabel": "ENSORD.",
+  "modifiers": {
+    "deafSec": 6
+  },
+  "visual": {
+    "showZone": true,
+    "zoneRgb": "225, 29, 72",
+    "zoneStroke": "rgba(251, 113, 133, 0.65)",
+    "warnBeforeSec": 1.8,
+    "waveKind": "scream_wave_066",
+    "floatingText": "¡GRITO 5x5!",
+    "floatingTextColor": "#FB7185",
+    "sound": "scream066"
+  }
+}

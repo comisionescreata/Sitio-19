@@ -1,0 +1,15 @@
+{
+  "id": "doors_079",
+  "engineMode": "builtin",
+  "category": "utility",
+  "kind": "door_controller",
+  "name": "Puertas de SCP-079",
+  "description": "Cae del cielo y controla 5 puertas entre las columnas 5 a 9 que abren y cierran aleatoriamente bloqueando disparos. Al bajar del 25% de vida, despliega 2 puertas extra (7 en total).",
+  "trigger": "on_spawn",
+  "targetSide": "self",
+  "areaShape": "global",
+  "doorCount": 5,
+  "extraDoorCount": 2,
+  "hpThresholdRatio": 0.25,
+  "color": "#22C55E"
+}

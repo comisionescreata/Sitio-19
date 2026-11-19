@@ -1,0 +1,36 @@
+{
+  "id": "impact_pyro",
+  "name": "Impacto Térmico",
+  "description": "Llamas y chispas ardientes al quemar a un SCP.",
+  "category": "impact",
+  "emitters": [
+    {
+      "shape": "circle",
+      "colors": [
+        "#F97316",
+        "#EF4444",
+        "#FDE047"
+      ],
+      "colorEnd": "#7C2D12",
+      "count": 8,
+      "durationSec": [
+        0.22,
+        0.38
+      ],
+      "sizePx": [
+        2.8,
+        5
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        40,
+        100
+      ],
+      "spreadDeg": 360,
+      "gravityPx": -60,
+      "blendMode": "lighter",
+      "glowColor": "#F97316",
+      "glowBlur": 7
+    }
+  ]
+}

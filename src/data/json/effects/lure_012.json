@@ -1,0 +1,26 @@
+{
+  "id": "lure_012",
+  "engineMode": "builtin",
+  "category": "trigger",
+  "kind": "sky_pull",
+  "name": "Atracción de SCP-012",
+  "description": "Cae del cielo y cada 5 segundos atrae 1 casilla al personal más cercano de su línea. Si entra en su casilla, lo mata y cura un 20% a SCP-012.",
+  "trigger": "periodic",
+  "targetSide": "towers",
+  "targetCategories": [
+    "personal"
+  ],
+  "areaShape": "lane",
+  "pullIntervalSec": 5,
+  "healPercent": 0.2,
+  "color": "#DC2626",
+  "modifiers": {
+    "pullCells": 1,
+    "healPercent": 0.2
+  },
+  "visual": {
+    "floatingText": "¡ATRAÍDO!",
+    "floatingTextColor": "#F87171",
+    "sound": "pull"
+  }
+}

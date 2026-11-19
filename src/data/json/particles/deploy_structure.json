@@ -1,0 +1,83 @@
+{
+  "id": "deploy_structure",
+  "name": "Instalación de Estructura",
+  "description": "Chispas metálicas ámbar, anillo de anclaje y polvo de impacto al construir defensas.",
+  "category": "deployment",
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#F59E0B",
+        "#FDE68A"
+      ],
+      "count": 1,
+      "durationSec": 0.46,
+      "sizePx": 12,
+      "ringExpandPx": 44,
+      "alphaStart": 0.95,
+      "alphaEnd": 0,
+      "strokeWidth": 3
+    },
+    {
+      "shape": "square",
+      "colors": [
+        "#F59E0B",
+        "#94A3B8",
+        "#FCD34D"
+      ],
+      "count": 14,
+      "durationSec": [
+        0.32,
+        0.52
+      ],
+      "sizePx": [
+        2.5,
+        4.5
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        45,
+        110
+      ],
+      "angleDeg": -90,
+      "spreadDeg": 170,
+      "gravityPx": 190,
+      "spinDegPerSec": [
+        -360,
+        360
+      ],
+      "offsetY": 10,
+      "spawnRadiusPx": 18,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(100, 116, 139, 0.55)",
+        "rgba(71, 85, 105, 0.45)"
+      ],
+      "count": 8,
+      "durationSec": [
+        0.45,
+        0.7
+      ],
+      "sizePx": [
+        9,
+        15
+      ],
+      "sizeEndScale": 2.1,
+      "alphaStart": 0.55,
+      "alphaEnd": 0,
+      "speedPx": [
+        24,
+        54
+      ],
+      "angleDeg": 180,
+      "spreadDeg": 360,
+      "gravityPx": -18,
+      "drag": 2.8,
+      "offsetY": 18,
+      "spawnRadiusPx": 16
+    }
+  ]
+}

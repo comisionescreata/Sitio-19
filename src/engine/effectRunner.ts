@@ -258,6 +258,23 @@ export function emitEffectVisual(
     });
   }
 
+  if (vis.particlePresetId && s.particleSystem) {
+    const meta = s.particleSystem.emitPreset(
+      vis.particlePresetId,
+      targetPos?.row ?? row,
+      targetPos?.col ?? col
+    );
+    if (meta?.screenShake && meta.screenShake > 0) {
+      s.shakeIntensity = Math.max(s.shakeIntensity, meta.screenShake);
+      s.shakeTimer = Math.max(s.shakeTimer, 0.35);
+    }
+    if (meta?.screenFlashRgb) {
+      s.flashRgb = meta.screenFlashRgb;
+      s.flashAlpha = Math.max(s.flashAlpha, meta.screenFlashAlpha ?? 0.3);
+      s.flashDecaySpeed = 2.6;
+    }
+  }
+
   if (vis.particleBurst) {
     const pb = vis.particleBurst;
     spawnParticleBurst(
@@ -1557,17 +1574,18 @@ export function stepDeclarativeEffects(
       tower.activeEffects = nextMap;
     }
 
+    const tDef = getTowerDefLocal(tower.type);
     tower.customFireRateMult = fireRateMult;
     tower.customDamageMult = damageMult;
     tower.customProjSpeedMult = projSpeedMult;
     tower.customDamageReduction = damageReduction;
     tower.customVulnerableMult = vulnerableMult;
-    tower.customLifesteal = lifesteal;
+    tower.customLifesteal = Math.max(tDef?.lifestealRatio ?? 0, lifesteal);
     tower.customThornsDps = thornsDps;
     tower.customDisabled = customDisabled;
     if (customDisabled) tower.suppressed = true;
-    tower.customBadge = badge;
-    tower.customTintColor = tintColor;
+    if (badge) tower.customBadge = badge;
+    if (tintColor) tower.customTintColor = tintColor;
   }
 
   // 4. Tick activeEffects, stunTimer & silenceTimer on all enemies
@@ -1579,12 +1597,13 @@ export function stepDeclarativeEffects(
       enemy.silenceTimer = Math.max(0, enemy.silenceTimer - dt);
     }
 
+    const beh = getEnemyDefLocal(enemy.type)?.behavior;
     let speedMult = 1;
     let damageMult = 1;
-    let damageReduction = 0;
+    let damageReduction = beh?.damageReduction ?? 0;
     let vulnerableMult = 1;
-    let lifesteal = 0;
-    let thornsDps = 0;
+    let lifesteal = beh?.lifestealRatio ?? 0;
+    let thornsDps = beh?.thornsDps ?? 0;
     let badge: { label: string; color: string; textColor?: string } | undefined;
     let tintColor: string | undefined;
 
@@ -1627,7 +1646,7 @@ export function stepDeclarativeEffects(
     enemy.customVulnerableMult = vulnerableMult;
     enemy.customLifesteal = lifesteal;
     enemy.customThornsDps = thornsDps;
-    enemy.customBadge = badge;
-    enemy.customTintColor = tintColor;
+    if (badge) enemy.customBadge = badge;
+    if (tintColor) enemy.customTintColor = tintColor;
   }
 }

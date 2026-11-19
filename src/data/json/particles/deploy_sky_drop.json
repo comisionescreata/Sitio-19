@@ -1,0 +1,50 @@
+{
+  "id": "deploy_sky_drop",
+  "name": "Impacto Orbital / Aéreo",
+  "description": "Onda de choque y escombros para SCPs o unidades que caen del cielo.",
+  "category": "deployment",
+  "screenShake": 4,
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#F59E0B",
+        "#EF4444"
+      ],
+      "count": 1,
+      "durationSec": 0.55,
+      "sizePx": 14,
+      "ringExpandPx": 56,
+      "strokeWidth": 3.5
+    },
+    {
+      "shape": "shard",
+      "colors": [
+        "#94A3B8",
+        "#F59E0B",
+        "#E2E8F0"
+      ],
+      "count": 14,
+      "durationSec": [
+        0.4,
+        0.65
+      ],
+      "sizePx": [
+        3.5,
+        6
+      ],
+      "sizeEndScale": 0.25,
+      "speedPx": [
+        65,
+        145
+      ],
+      "angleDeg": -90,
+      "spreadDeg": 165,
+      "gravityPx": 260,
+      "spinDegPerSec": [
+        -420,
+        420
+      ]
+    }
+  ]
+}

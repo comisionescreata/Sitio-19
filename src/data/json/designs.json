@@ -11,15 +11,37 @@
     "tileSpriteOdd": "",
     "tileStroke": "rgba(255,255,255,0.04)",
     "tileStrokeWidth": 1,
+    "tileCornerRadius": 0,
+    "tileGap": 0,
+    "tileHighlightColor": "",
     "arrowFill": "rgba(148, 163, 184, 0.05)",
     "arrowColumns": [0, 4, 8],
     "adaptArrowsToGrid": true,
+    "arrowStyle": "chevron",
+    "arrowScale": 1,
     "laneStroke": "rgba(15, 23, 42, 0.7)",
     "laneStrokeWidth": 2,
+    "laneAlternateTint": "",
+    "showLaneNumbers": false,
+    "laneLabelPrefix": "F",
+    "laneNumberColor": "rgba(148, 163, 184, 0.45)",
+    "gateLabel": "",
+    "gateLabelColor": "#94A3B8",
+    "gateBorderColor": "",
+    "gateBorderWidth": 0,
+    "breachLabel": "",
+    "breachLabelColor": "#F59E0B",
     "breachStripeDark": "#7F1D1D",
     "breachStripeAmber": "#F59E0B",
     "breachStripeWidth": 5,
     "breachStripeHeight": 9,
+    "outerBorderColor": "",
+    "outerBorderWidth": 0,
+    "boundaryLineColor": "#EF4444",
+    "boundaryLineWidth": 2.5,
+    "boundaryLineDash": [6, 5],
+    "boundaryLabelBg": "rgba(15, 23, 42, 0.92)",
+    "boundaryLabelText": "#FCA5A5",
     "blinkOverlayRgb": "3, 5, 8",
     "blinkMaxAlpha": 0.92
   },
@@ -156,7 +178,11 @@
     "strokeWidth": 2,
     "headOrTop": "#1E293B",
     "accent": "#38BDF8",
-    "weaponOrDetail": "#94A3B8"
+    "weaponOrDetail": "#94A3B8",
+    "shieldBarColor": "#38BDF8",
+    "shieldRingColor": "rgba(56, 189, 248, 0.75)",
+    "recoilScale": 1,
+    "opacity": 1
   },
   "defaultEnemy": {
     "shape": "zombie",
@@ -174,13 +200,22 @@
     "accent": "#EF4444",
     "hpBar": "#EF4444",
     "barWidth": 38,
-    "codeLabel": ""
+    "codeLabel": "",
+    "shieldBarColor": "#A855F7",
+    "shieldRingColor": "rgba(168, 85, 247, 0.75)",
+    "stealthAlpha": 0.45,
+    "opacity": 1
   },
   "defaultProjectile": {
     "shape": "circle",
     "color": "#38BDF8",
     "coreColor": "#E0F2FE",
-    "radius": 4.5
+    "radius": 4.5,
+    "rotateToVelocity": true,
+    "trailLength": 0,
+    "trailColor": "",
+    "trailWidth": 2,
+    "alpha": 1
   },
   "towers": {
     "researcher": {
@@ -954,6 +989,52 @@
     "grenade": { "shape": "circle", "color": "#84CC16", "coreColor": "#ECFCCB", "glowColor": "#65A30D", "glowBlur": 8, "radius": 7, "coreRatio": 0.45 },
     "psionic": { "shape": "circle", "color": "#A78BFA", "coreColor": "#E0E7FF", "glowColor": "#818CF8", "glowBlur": 8, "radius": 6, "coreRatio": 0.45 }
   },
+  "obstacles": {
+    "tombstone": {
+      "color": "#475569",
+      "crackedColor": "#334155",
+      "strokeColor": "#94A3B8",
+      "crackColor": "#0F172A",
+      "labelColor": "#E2E8F0",
+      "hpBarColor": "#F59E0B",
+      "hpBarWidth": 46,
+      "cornerRadius": 10
+    },
+    "debris": {
+      "color": "#57534E",
+      "crackedColor": "#44403C",
+      "strokeColor": "#A8A29E",
+      "crackColor": "#1C1917",
+      "labelColor": "#F5F5F4",
+      "hpBarColor": "#F59E0B",
+      "hpBarWidth": 46,
+      "cornerRadius": 6
+    },
+    "pillar": {
+      "color": "#334155",
+      "crackedColor": "#1E293B",
+      "strokeColor": "#64748B",
+      "crackColor": "#020617",
+      "labelColor": "#CBD5E1",
+      "hpBarColor": "#38BDF8",
+      "hpBarWidth": 46,
+      "cornerRadius": 4
+    }
+  },
+  "tileModifiers": {
+    "heal_tower": { "color": "rgba(16, 185, 129, 0.22)", "borderColor": "#10B981", "label": "+HP" },
+    "boost_fire_rate": { "color": "rgba(245, 158, 11, 0.22)", "borderColor": "#F59E0B", "label": "VEL+" },
+    "boost_damage": { "color": "rgba(239, 68, 68, 0.22)", "borderColor": "#EF4444", "label": "DMG+" },
+    "energy_pad": { "color": "rgba(251, 191, 36, 0.22)", "borderColor": "#FBBF24", "label": "+EN" },
+    "shield_pad": { "color": "rgba(56, 189, 248, 0.22)", "borderColor": "#38BDF8", "label": "ESC" },
+    "slow_enemy": { "color": "rgba(34, 211, 238, 0.22)", "borderColor": "#22D3EE", "label": "CRYO" },
+    "speed_enemy": { "color": "rgba(244, 63, 94, 0.22)", "borderColor": "#F43F5E", "label": "PRISA" },
+    "damage_enemy": { "color": "rgba(249, 115, 22, 0.24)", "borderColor": "#F97316", "label": "TRAMPA" },
+    "ignite_projectiles": { "color": "rgba(249, 115, 22, 0.25)", "borderColor": "#FB923C", "label": "FUEGO" },
+    "cryo_projectiles": { "color": "rgba(56, 189, 248, 0.25)", "borderColor": "#38BDF8", "label": "HIELO" },
+    "hazard_void": { "color": "rgba(139, 92, 246, 0.24)", "borderColor": "#A78BFA", "label": "VACÍO" },
+    "heal_enemy": { "color": "rgba(132, 204, 22, 0.22)", "borderColor": "#84CC16", "label": "REGEN" }
+  },
   "effects": {
     "explosionStroke": "245, 158, 11",
     "explosionFill": "239, 68, 68",
@@ -1011,6 +1092,12 @@
     "hpBarHigh": "#10B981",
     "hpBarMid": "#F59E0B",
     "hpBarLow": "#EF4444",
+    "hpBarRadius": 2,
+    "hpBarBorderColor": "rgba(255,255,255,0.12)",
+    "hpBarBorderWidth": 0,
+    "shieldBarColor": "#38BDF8",
+    "shieldBarHeight": 3,
+    "shieldGlowColor": "rgba(56, 189, 248, 0.6)",
     "labelText": "#E2E8F0",
     "energyDropBg": "#F59E0B",
     "energyDropStroke": "#FEF3C7",
@@ -1020,6 +1107,9 @@
     "energyDropHaloBase": 18,
     "energyDropHaloAmp": 2.5,
     "energyDropSprite": "",
+    "energyDropShape": "circle",
+    "energyDropPulseSpeed": 5,
+    "energyDropLabelPrefix": "+",
     "tagBg": "rgba(15, 12, 30, 0.88)",
     "tagWidth": 68,
     "tagHeight": 14,
@@ -1030,6 +1120,17 @@
     "towerHpBarOffsetY": 6,
     "enemyHpBarHeight": 5,
     "enemyHpBarOffsetY": 5,
-    "enemyLabelOffsetY": 18
+    "enemyLabelOffsetY": 18,
+    "enemyLabelBg": "",
+    "enemyLabelRadius": 3,
+    "floatingTextShadowColor": "rgba(0, 0, 0, 0.75)",
+    "floatingTextScale": 1
+  },
+  "hudTheme": {
+    "accentColor": "#F59E0B",
+    "panelBg": "#141A22",
+    "panelBorder": "#1E293B",
+    "canvasBorderColor": "#1E293B",
+    "headerBg": "#131820"
   }
 }

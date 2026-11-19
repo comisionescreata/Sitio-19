@@ -4,6 +4,7 @@
     "storageKey": "scp_td_completed_levels_v2",
     "sectorBackdropImage": "/src/assets/images/SCPlogo.webp"
   },
+  "levelOrder": [1, 2, 3],
   "grid": {
     "rows": 6,
     "cols": 9

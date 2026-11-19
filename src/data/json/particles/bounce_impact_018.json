@@ -1,0 +1,46 @@
+{
+  "id": "bounce_impact_018",
+  "name": "Impacto Cinético SCP-018",
+  "description": "Estallido rojo de altísima energía cinética.",
+  "category": "explosion",
+  "screenShake": 6,
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#EF4444",
+        "#FFFFFF"
+      ],
+      "count": 1,
+      "durationSec": 0.42,
+      "sizePx": 12,
+      "ringExpandPx": 56,
+      "strokeWidth": 4.5,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "spark",
+      "colors": [
+        "#EF4444",
+        "#FCA5A5",
+        "#FFFFFF"
+      ],
+      "count": 16,
+      "durationSec": [
+        0.25,
+        0.45
+      ],
+      "sizePx": [
+        2.8,
+        5
+      ],
+      "speedPx": [
+        110,
+        260
+      ],
+      "spreadDeg": 360,
+      "drag": 2.5,
+      "blendMode": "lighter"
+    }
+  ]
+}

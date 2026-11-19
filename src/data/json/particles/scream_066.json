@@ -1,0 +1,55 @@
+{
+  "id": "scream_066",
+  "name": "Onda Sonora SCP-066 (5x5)",
+  "description": "Doble onda expansiva carmesí de saturación acústica.",
+  "category": "aura",
+  "screenShake": 5,
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#E11D48",
+        "#FB7185"
+      ],
+      "count": 1,
+      "durationSec": 0.68,
+      "sizePx": 22,
+      "ringExpandPx": 215,
+      "strokeWidth": 5
+    },
+    {
+      "shape": "ring",
+      "colors": [
+        "#FDA4AF"
+      ],
+      "count": 1,
+      "durationSec": 0.65,
+      "sizePx": 14,
+      "ringExpandPx": 160,
+      "strokeWidth": 3,
+      "delaySec": 0.1
+    },
+    {
+      "shape": "spark",
+      "colors": [
+        "#FB7185",
+        "#FDA4AF"
+      ],
+      "count": 16,
+      "durationSec": [
+        0.35,
+        0.55
+      ],
+      "sizePx": [
+        2.5,
+        4.5
+      ],
+      "speedPx": [
+        120,
+        240
+      ],
+      "spreadDeg": 360,
+      "blendMode": "lighter"
+    }
+  ]
+}

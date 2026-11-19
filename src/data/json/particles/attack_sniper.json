@@ -1,0 +1,49 @@
+{
+  "id": "attack_sniper",
+  "name": "Disparo de Francotirador",
+  "description": "Fogonazo de alta presión y chispa penetrante.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#FDE047",
+        "#38BDF8"
+      ],
+      "count": 1,
+      "durationSec": 0.16,
+      "sizePx": 5,
+      "ringExpandPx": 22,
+      "offsetX": 28,
+      "strokeWidth": 2,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "spark",
+      "colors": [
+        "#FFFFFF",
+        "#FDE047",
+        "#38BDF8"
+      ],
+      "count": 8,
+      "durationSec": [
+        0.14,
+        0.26
+      ],
+      "sizePx": [
+        2.2,
+        3.8
+      ],
+      "sizeEndScale": 0.1,
+      "speedPx": [
+        140,
+        260
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 24,
+      "drag": 3.5,
+      "offsetX": 28,
+      "blendMode": "lighter"
+    }
+  ]
+}

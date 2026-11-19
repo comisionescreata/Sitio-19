@@ -1,0 +1,29 @@
+{
+  "id": "resurrection_049",
+  "engineMode": "builtin",
+  "category": "summon",
+  "kind": "plague_aura",
+  "name": "Peste de SCP-049",
+  "description": "Mientras SCP-049 esté vivo, los SCP-008 tienen +20% de velocidad y otra vida. Si SCP-049 mata una torre, la convierte en SCP-049-2.",
+  "trigger": "continuous_aura",
+  "targetSide": "allies",
+  "targetTypes": [
+    "scp_008"
+  ],
+  "areaShape": "global",
+  "speedMultiplier": 1.2,
+  "extraLives": 1,
+  "color": "#22C55E",
+  "badgeLabel": "REANIMADO",
+  "modifiers": {
+    "speedMultiplier": 1.2,
+    "extraLives": 1,
+    "convertVictimTo": "scp_049_2"
+  },
+  "visual": {
+    "waveKind": "revive_ring",
+    "floatingText": "SCP-049-2",
+    "floatingTextColor": "#4ADE80",
+    "sound": "revive"
+  }
+}

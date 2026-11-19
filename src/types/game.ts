@@ -8,7 +8,7 @@ export type GameState =
 
 export type TowerCategory = 'personal' | 'estructura';
 
-export type TowerType =
+export type BuiltinTowerType =
   | 'researcher'
   | 'guard'
   | 'medic'
@@ -30,7 +30,9 @@ export type TowerType =
   | 'turret'
   | 'radio';
 
-export type EnemyType =
+export type TowerType = BuiltinTowerType | (string & {});
+
+export type BuiltinEnemyType =
   | 'scp_008'
   | 'scp_966'
   | 'scp_939'
@@ -48,6 +50,8 @@ export type EnemyType =
   | 'scp_018'
   | 'scp_058'
   | 'scp_682';
+
+export type EnemyType = BuiltinEnemyType | (string & {});
 
 export type EnemyImmunity = 'all_effects' | 'explosion' | 'slow' | 'burn' | 'stun' | 'silence';
 
@@ -191,6 +195,7 @@ export interface EffectVisualConfig {
   beamWidth?: number;
   beamDurationSec?: number;
   particleBurst?: EffectParticleBurstConfig;
+  particlePresetId?: string;
   screenFlashRgb?: string;
   screenFlashAlpha?: number;
   screenShake?: number;
@@ -199,6 +204,87 @@ export interface EffectVisualConfig {
   sound?: EffectSoundKey;
   targetTintColor?: string;
   shieldColor?: string;
+}
+
+export type ParticleShape =
+  | 'circle'
+  | 'square'
+  | 'spark'
+  | 'ring'
+  | 'star'
+  | 'cross'
+  | 'shard'
+  | 'smoke'
+  | 'sprite';
+
+export type ParticleBlendMode = 'source-over' | 'lighter' | 'screen';
+
+export interface ParticleEmitterConfig {
+  shape?: ParticleShape;
+  sprite?: string;
+  colors: string[];
+  colorEnd?: string;
+  count: number | [number, number];
+  durationSec: number | [number, number];
+  sizePx: number | [number, number];
+  sizeEndScale?: number;
+  alphaStart?: number;
+  alphaEnd?: number;
+  speedPx?: number | [number, number];
+  angleDeg?: number;
+  spreadDeg?: number;
+  gravityPx?: number;
+  drag?: number;
+  spinDegPerSec?: number | [number, number];
+  offsetX?: number;
+  offsetY?: number;
+  spawnRadiusPx?: number;
+  blendMode?: ParticleBlendMode;
+  glowColor?: string;
+  glowBlur?: number;
+  strokeColor?: string;
+  strokeWidth?: number;
+  delaySec?: number;
+  ringExpandPx?: number;
+}
+
+export type ParticleCategory =
+  | 'attack'
+  | 'explosion'
+  | 'deployment'
+  | 'impact'
+  | 'aura'
+  | 'obstacle'
+  | 'custom';
+
+export interface ParticlePresetDefinition {
+  id: string;
+  name?: string;
+  description?: string;
+  category?: ParticleCategory;
+  emitters: ParticleEmitterConfig[];
+  screenFlashRgb?: string;
+  screenFlashAlpha?: number;
+  screenShake?: number;
+  sound?: EffectSoundKey | (string & {});
+}
+
+export interface TowerParticleHooks {
+  onDeploy?: string;
+  onAttack?: string;
+  onHit?: string;
+  onDeath?: string;
+  projectileTrail?: string;
+}
+
+export interface EnemyParticleHooks {
+  onSpawn?: string;
+  onAttack?: string;
+  onDamaged?: string;
+  onKill?: string;
+  onDeath?: string;
+  trail?: string;
+  trailIntervalSec?: number;
 }
 
 export type EffectTargetPriority =
@@ -273,7 +359,7 @@ export interface EffectDefinition {
   maxSpeed?: number;
 }
 
-export type ProjectileKind =
+export type BuiltinProjectileKind =
   | 'standard'
   | 'mtf'
   | 'cryo'
@@ -285,11 +371,23 @@ export type ProjectileKind =
   | 'grenade'
   | 'psionic';
 
+export type ProjectileKind = BuiltinProjectileKind | (string & {});
+
+export type DamageTypeKind =
+  | 'physical'
+  | 'explosion'
+  | 'fire'
+  | 'cryo'
+  | 'electric'
+  | 'psionic'
+  | 'true';
+
 export interface TowerDefinition {
   type: TowerType;
   name: string;
   category: TowerCategory;
   cost: number;
+  costScalePerDeployed?: number;
   cooldown: number;
   maxHp: number;
   unlockLevel: number;
@@ -297,36 +395,172 @@ export interface TowerDefinition {
   description: string;
   fireRate?: number;
   damage?: number;
+  damageType?: DamageTypeKind;
+  armorPenetration?: number;
+  bonusDamageToBoss?: number;
+  critChance?: number;
+  critMultiplier?: number;
   burstCount?: number;
+  projectileCountPerShot?: number;
+  projectileRowSpread?: number;
   maxRangeCols?: number;
+  canTargetRows?: number;
+  attackBehind?: boolean;
+  targetPriority?: 'closest' | 'furthest' | 'lowest_hp' | 'highest_hp' | 'fastest';
   splashRadius?: number;
+  pierceCount?: number;
+  chainBounceCount?: number;
+  chainBounceRangeCols?: number;
+  chainDamageDecay?: number;
+  knockbackCols?: number;
+  stunDuration?: number;
+  silenceDuration?: number;
   slowFactor?: number;
   slowDuration?: number;
   burnDps?: number;
   burnDuration?: number;
   energyAmount?: number;
   energyInterval?: number;
+  deployEnergyBonus?: number;
   healAmount?: number;
   healInterval?: number;
   armTime?: number;
   explosionDamage?: number;
+  explosionRadiusCols?: number;
+  explosionRadiusRows?: number;
   thornsDps?: number;
+  reflectDamagePercent?: number;
+  lifestealRatio?: number;
+  regenHpPerSec?: number;
+  shieldOnDeploy?: number;
+  shieldColor?: string;
+  shieldRegenPerSec?: number;
+  maxShieldHp?: number;
   floorTrapDps?: number;
   aoeTargets?: number;
+  aoeRadiusRows?: number;
+  aoeRadiusCols?: number;
   passThrough?: boolean;
   projectileKind?: ProjectileKind;
   projectileSpeed?: number;
   canBeHypnotized?: boolean;
-  placementRule?: 'any' | 'frontHalf' | 'backHalf';
+  immuneToPsych?: boolean;
+  placementRule?: 'any' | 'frontHalf' | 'backHalf' | 'rows' | 'cols';
+  allowedRows?: number[];
+  allowedCols?: number[];
+  canPlaceOnObstacles?: boolean;
   maxPerBoard?: number;
   maxPerRow?: number;
   effects?: string[];
+  onDeployEffects?: string[];
+  onAttackEffects?: string[];
+  onHitEffects?: string[];
+  onDeathEffects?: string[];
+  onDeathExplosionDamage?: number;
+  onDeathExplosionRadius?: number;
+  onDeployTriggerEventId?: string;
+  onDeathTriggerEventId?: string;
+  particles?: TowerParticleHooks;
+  soundOnDeploy?: EffectSoundKey | (string & {});
+  soundOnAttack?: string;
+  soundOnDeath?: EffectSoundKey | (string & {});
+  inlineDesign?: Partial<TowerDesignConfig>;
+}
+
+export interface EnemyRangedAttackConfig {
+  rangeCols: number;
+  intervalSec: number;
+  damage: number;
+  splashRadius?: number;
+  stunSec?: number;
+  rowSpan?: number;
+  particlePresetId?: string;
+  beamColor?: string;
+  sound?: EffectSoundKey | (string & {});
+}
+
+export interface EnemyPeriodicSummonConfig {
+  intervalSec: number;
+  initialDelaySec?: number;
+  type: EnemyType;
+  count?: number;
+  offsetCol?: number;
+  rowSpread?: number;
+  maxAlive?: number;
+  hpMultiplier?: number;
+  speedMultiplier?: number;
+  dpsMultiplier?: number;
+  sound?: EffectSoundKey | (string & {});
+  particlePresetId?: string;
+}
+
+export interface EnemyEnrageConfig {
+  hpRatio: number;
+  triggerCol?: number;
+  convulseSec?: number;
+  newHp?: number;
+  speedMultiplier?: number;
+  dpsMultiplier?: number;
+  stunRadiusRow?: number;
+  stunRadiusCol?: number;
+  stunSec?: number;
+  badge?: string;
+  color?: string;
+  sound?: EffectSoundKey | (string & {});
+  particlePresetId?: string;
 }
 
 export interface EnemyBehaviorConfig {
   laneSpan?: number;
   defaultPackCount?: number;
   immunities?: EnemyImmunity[];
+  damageReduction?: number;
+  maxDamagePerHit?: number;
+  knockbackResist?: number;
+  dodgeChance?: number;
+  initialShieldHp?: number;
+  shieldColor?: string;
+  shieldRegenPerSec?: number;
+  regenHpPerSec?: number;
+  thornsDps?: number;
+  reflectDamagePercent?: number;
+  lifestealRatio?: number;
+  reviveCount?: number;
+  reviveHpPercent?: number;
+  eliteBadge?: string;
+  eliteColor?: string;
+  rewardsEnergyOnKill?: number;
+  untargetableUntilCol?: number;
+  laneHopIntervalSec?: number;
+  laneHopMode?: 'random' | 'toward_towers' | 'avoid_towers';
+  speedScaleAsHpDrops?: {
+    maxBonusMultiplier: number;
+  };
+  enrageOnLowHp?: EnemyEnrageConfig;
+  rangedAttack?: EnemyRangedAttackConfig;
+  summonPeriodic?: EnemyPeriodicSummonConfig;
+  onKillConvertTo?: {
+    type: EnemyType;
+    hpMultiplier?: number;
+    particlePresetId?: string;
+  };
+  onDeathSplit?: {
+    type: EnemyType;
+    count: number;
+    spreadRows?: number;
+    hpMultiplier?: number;
+    particlePresetId?: string;
+  };
+  onDeathExplosion?: {
+    radiusCols: number;
+    radiusRows?: number;
+    damage: number;
+    stunSec?: number;
+    particlePresetId?: string;
+    sound?: EffectSoundKey | (string & {});
+  };
+  onSpawnTriggerEventId?: string;
+  onDeathTriggerEventId?: string;
   spawnRule?: {
     mode: 'edge' | 'sky';
     colRange?: [number, number];
@@ -343,6 +577,8 @@ export interface EnemyBehaviorConfig {
   };
   blinkJump?: {
     effectId: string;
+    intervalSec?: number;
+    cells?: number;
     paranoiaPartner?: EnemyType;
     paranoiaIntervalSec?: number;
     paranoiaCells?: number;
@@ -400,6 +636,10 @@ export interface EnemyDefinition {
   isSummon?: boolean;
   announcement?: string;
   behavior?: EnemyBehaviorConfig;
+  particles?: EnemyParticleHooks;
+  soundOnSpawn?: EffectSoundKey | (string & {});
+  soundOnDeath?: EffectSoundKey | (string & {});
+  inlineDesign?: Partial<EnemyDesignConfig>;
 }
 
 export interface LevelSkyEnergyConfig {
@@ -667,11 +907,101 @@ export interface StartingDoorConfig {
   toggleIntervalSec?: number;
 }
 
+export type ObjectiveCategory = 'primary' | 'secondary' | 'bonus' | 'fail_condition';
+
+export type ObjectiveKind =
+  | 'no_enemy_past_col'
+  | 'no_enemy_reach_row_col'
+  | 'no_tesla_gate_used'
+  | 'max_tesla_gates_used'
+  | 'max_towers_lost'
+  | 'max_towers_deployed'
+  | 'max_towers_alive'
+  | 'min_towers_alive'
+  | 'protect_obstacles'
+  | 'destroy_all_obstacles'
+  | 'kill_enemies'
+  | 'min_energy_remaining'
+  | 'max_energy_spent'
+  | 'survive_time'
+  | 'no_tower_type_used'
+  | 'keep_tower_hp_above'
+  | 'event_triggered';
+
+export interface ObjectiveDefinition {
+  id: string;
+  title?: string;
+  description: string;
+  category?: ObjectiveCategory;
+  kind: ObjectiveKind;
+  col?: number;
+  minCol?: number;
+  maxCol?: number;
+  rows?: number[];
+  enemyTypes?: Array<EnemyType | (string & {})>;
+  excludeEnemyTypes?: Array<EnemyType | (string & {})>;
+  towerTypes?: Array<TowerType | (string & {})>;
+  towerCategory?: TowerCategory;
+  obstacleKind?: BoardObstacleKind | (string & {});
+  eventId?: string;
+  targetCount?: number;
+  maxCount?: number;
+  minCount?: number;
+  targetSeconds?: number;
+  minEnergy?: number;
+  maxEnergy?: number;
+  minHpRatio?: number;
+  ignoreSkyFalling?: boolean;
+  failOnViolate?: boolean;
+  requiredForVictory?: boolean;
+  failReason?: string;
+  showBoundaryLine?: boolean;
+  boundaryColor?: string;
+  boundaryLabel?: string;
+  rewardEnergy?: number;
+  scoreBonus?: number;
+  color?: string;
+}
+
+export type LevelObjectiveSpec =
+  | string
+  | (Partial<ObjectiveDefinition> & {
+      objectiveId?: string;
+    });
+
+export interface ObjectiveProgressState {
+  def: ObjectiveDefinition;
+  category: ObjectiveCategory;
+  status: 'active' | 'completed' | 'failed';
+  currentValue: number;
+  targetValue?: number;
+  progressText?: string;
+  rewardClaimed?: boolean;
+}
+
+export type VictoryConditionMode =
+  | 'standard'
+  | 'survive_time'
+  | 'kill_count'
+  | 'destroy_obstacles'
+  | 'objectives_only'
+  | 'survive_and_kill'
+  | 'boss_hunt'
+  | 'endless';
+
 export interface LevelVictoryCondition {
-  mode?: 'standard' | 'survive_time' | 'kill_count';
+  mode?: VictoryConditionMode;
   targetSeconds?: number;
   targetKills?: number;
+  targetEnemyTypes?: Array<EnemyType | (string & {})>;
+  targetObstacles?: number;
+  obstacleKind?: BoardObstacleKind | (string & {});
+  requireClearAfter?: boolean;
+  breachCol?: number;
+  defeatOnZeroTowersAfterSec?: number;
   label?: string;
+  victoryTitle?: string;
+  victorySubtitle?: string;
 }
 
 export type LevelEventTriggerType =
@@ -888,6 +1218,7 @@ export interface LevelEventVisualConfig {
   waveRow?: number;
   waveCol?: number;
   particleBurst?: EffectParticleBurstConfig;
+  particlePresetId?: string;
   floatingText?: string;
   floatingTextColor?: string;
   sound?: EffectSoundKey;
@@ -954,9 +1285,12 @@ export interface RawLevelEvent {
 }
 
 export interface RawLevelConfig {
-  level: number;
+  level?: number;
   title: string;
   description: string;
+  coverImage?: string;
+  portrait?: string;
+  bannerImage?: string;
   startingEnergy: number;
   maxDeckSlots: number;
   rows?: number;
@@ -977,7 +1311,8 @@ export interface RawLevelConfig {
   startingEnemies?: StartingEnemyConfig[];
   startingDoors079?: StartingDoorConfig[];
   globalEffects?: string[];
-  levelEvents?: Array<string | Partial<LevelEventDefinition> & { eventId?: string }>;
+  levelEvents?: Array<string | (Partial<LevelEventDefinition> & { eventId?: string })>;
+  objectives?: LevelObjectiveSpec[];
   introDialogueId?: string;
   victoryDialogueId?: string;
   defeatDialogueId?: string;
@@ -1023,6 +1358,7 @@ export interface LevelConfig {
   level: number;
   title: string;
   description: string;
+  coverImage?: string;
   startingEnergy: number;
   maxDeckSlots: number;
   gridRows: number;
@@ -1042,6 +1378,7 @@ export interface LevelConfig {
   startingDoors079?: StartingDoorConfig[];
   globalEffects?: string[];
   levelEvents?: Array<string | (Partial<LevelEventDefinition> & { eventId?: string })>;
+  objectives?: ObjectiveDefinition[];
   introDialogueId?: string;
   victoryDialogueId?: string;
   defeatDialogueId?: string;
@@ -1096,7 +1433,16 @@ export type EnemyDesignShape =
   | 'reptile_giant';
 
 export type SpriteRenderMode = 'replace' | 'under' | 'over';
-export type ProjectileDesignShape = 'circle' | 'streak' | 'pellet_cluster';
+export type ProjectileDesignShape =
+  | 'circle'
+  | 'streak'
+  | 'pellet_cluster'
+  | 'diamond'
+  | 'laser_bolt'
+  | 'orb'
+  | 'rocket'
+  | 'ring'
+  | 'sprite';
 
 export type CustomShapePrimitiveType =
   | 'rect'
@@ -1199,6 +1545,21 @@ export interface TowerDesignConfig {
   hpBarWidth?: number;
   hpBarHeight?: number;
   hpBarOffsetY?: number;
+  hpBarFill?: string;
+  hpBarBg?: string;
+  shieldBarColor?: string;
+  shieldRingColor?: string;
+  label?: string;
+  labelColor?: string;
+  auraColor?: string;
+  auraRadius?: number;
+  auraPulseSpeed?: number;
+  outlineGlowColor?: string;
+  outlineGlowBlur?: number;
+  breatheAmp?: number;
+  breatheSpeed?: number;
+  recoilScale?: number;
+  opacity?: number;
 }
 
 export interface EnemyDesignConfig {
@@ -1249,14 +1610,24 @@ export interface EnemyDesignConfig {
   convulseShakeSpeed?: number;
   convulseShakeAmount?: number;
   hpBar: string;
+  hpBarBg?: string;
   showHpBar?: boolean;
   barWidth: number;
   hpBarHeight?: number;
   hpBarOffsetY?: number;
+  shieldBarColor?: string;
+  shieldRingColor?: string;
   codeLabel: string;
   showCodeLabel?: boolean;
   labelColor?: string;
+  labelBg?: string;
   labelOffsetY?: number;
+  eliteGlowColor?: string;
+  eliteGlowBlur?: number;
+  stealthAlpha?: number;
+  burnTint?: string;
+  stunRingColor?: string;
+  opacity?: number;
 }
 
 export interface ProjectileDesignConfig {
@@ -1266,8 +1637,12 @@ export interface ProjectileDesignConfig {
   spriteWidth?: number;
   spriteHeight?: number;
   rotationDeg?: number;
+  rotateToVelocity?: boolean;
+  spinSpeed?: number;
   color: string;
   coreColor: string;
+  outlineColor?: string;
+  outlineWidth?: number;
   glowColor?: string;
   glowBlur?: number;
   radius: number;
@@ -1275,6 +1650,13 @@ export interface ProjectileDesignConfig {
   cornerRadius?: number;
   coreRatio?: number;
   pelletSpread?: number;
+  trailLength?: number;
+  trailColor?: string;
+  trailWidth?: number;
+  pulseSpeed?: number;
+  alpha?: number;
+  trailParticleId?: string;
+  impactParticleId?: string;
 }
 
 export interface BoardDesignConfig {
@@ -1289,15 +1671,37 @@ export interface BoardDesignConfig {
   tileSpriteOdd?: string;
   tileStroke: string;
   tileStrokeWidth?: number;
+  tileCornerRadius?: number;
+  tileGap?: number;
+  tileHighlightColor?: string;
   arrowFill: string;
   arrowColumns?: number[];
   adaptArrowsToGrid?: boolean;
+  arrowStyle?: 'chevron' | 'triangle' | 'line';
+  arrowScale?: number;
   laneStroke: string;
   laneStrokeWidth?: number;
+  laneAlternateTint?: string;
+  showLaneNumbers?: boolean;
+  laneLabelPrefix?: string;
+  laneNumberColor?: string;
+  gateLabel?: string;
+  gateLabelColor?: string;
+  gateBorderColor?: string;
+  gateBorderWidth?: number;
+  breachLabel?: string;
+  breachLabelColor?: string;
   breachStripeDark: string;
   breachStripeAmber: string;
   breachStripeWidth?: number;
   breachStripeHeight?: number;
+  outerBorderColor?: string;
+  outerBorderWidth?: number;
+  boundaryLineColor?: string;
+  boundaryLineWidth?: number;
+  boundaryLineDash?: number[];
+  boundaryLabelBg?: string;
+  boundaryLabelText?: string;
   blinkOverlayRgb: string;
   blinkMaxAlpha?: number;
 }
@@ -1449,11 +1853,47 @@ export interface FontsDesignConfig {
   floatingText?: string;
 }
 
+export interface ObstacleDesignConfig {
+  color?: string;
+  crackedColor?: string;
+  strokeColor?: string;
+  crackColor?: string;
+  labelColor?: string;
+  hpBarColor?: string;
+  hpBarWidth?: number;
+  cornerRadius?: number;
+  sprite?: string;
+  crackedSprite?: string;
+}
+
+export interface TileModifierDesignConfig {
+  color?: string;
+  borderColor?: string;
+  label?: string;
+  opacity?: number;
+  pulseSpeed?: number;
+  sprite?: string;
+}
+
+export interface HudThemeDesignConfig {
+  accentColor?: string;
+  panelBg?: string;
+  panelBorder?: string;
+  canvasBorderColor?: string;
+  headerBg?: string;
+}
+
 export interface UiDesignConfig {
   hpBarBg: string;
   hpBarHigh: string;
   hpBarMid: string;
   hpBarLow: string;
+  hpBarRadius?: number;
+  hpBarBorderColor?: string;
+  hpBarBorderWidth?: number;
+  shieldBarColor?: string;
+  shieldBarHeight?: number;
+  shieldGlowColor?: string;
   labelText: string;
   energyDropBg: string;
   energyDropStroke: string;
@@ -1463,6 +1903,9 @@ export interface UiDesignConfig {
   energyDropHaloBase?: number;
   energyDropHaloAmp?: number;
   energyDropSprite?: string;
+  energyDropShape?: 'circle' | 'diamond' | 'cell';
+  energyDropPulseSpeed?: number;
+  energyDropLabelPrefix?: string;
   tagBg: string;
   tagWidth?: number;
   tagHeight?: number;
@@ -1474,6 +1917,10 @@ export interface UiDesignConfig {
   enemyHpBarHeight?: number;
   enemyHpBarOffsetY?: number;
   enemyLabelOffsetY?: number;
+  enemyLabelBg?: string;
+  enemyLabelRadius?: number;
+  floatingTextShadowColor?: string;
+  floatingTextScale?: number;
 }
 
 export interface DesignCatalog {
@@ -1496,9 +1943,12 @@ export interface DesignCatalog {
   towers: Record<string, TowerDesignConfig>;
   enemies: Record<string, EnemyDesignConfig>;
   projectiles: Record<string, ProjectileDesignConfig>;
+  obstacles?: Record<string, ObstacleDesignConfig>;
+  tileModifiers?: Record<string, TileModifierDesignConfig>;
   effects: EffectsDesignConfig;
   fonts?: FontsDesignConfig;
   ui: UiDesignConfig;
+  hudTheme?: HudThemeDesignConfig;
 }
 
 
@@ -1515,6 +1965,9 @@ export interface GameConfig {
     storageKey: string;
     sectorBackdropImage: string;
   };
+  levelOrder?: number[];
+  scpOrder?: string[];
+  towerOrder?: string[];
   grid: {
     rows: number;
     cols: number;
@@ -1545,7 +1998,7 @@ export interface GameConfig {
     announcementDurationSec: number;
     flagBannerDurationSec: number;
     defaultFlagBanner: string;
-    projectileSpeeds: Record<ProjectileKind, number>;
+    projectileSpeeds: Record<string, number>;
     doors079: {
       minCol: number;
       toggleMinSec: number;
@@ -1653,6 +2106,12 @@ export interface Enemy {
   hitFlash: number;
   animPhase: number;
   blinkMoveTimer: number;
+  laneHopTimer?: number;
+  rangedAttackTimer?: number;
+  summonPeriodicTimer?: number;
+  trailParticleTimer?: number;
+  genericEnrageTriggered?: boolean;
+  genericEnrageConvulseTimer?: number;
   hasRevived: boolean;
   isAttacking: boolean;
   packId?: string;
@@ -1708,25 +2167,38 @@ export interface Projectile {
   row: number;
   col: number;
   originCol: number;
+  direction?: 1 | -1;
   maxRangeCols?: number;
   splashRadius?: number;
   speed: number;
   damage: number;
+  damageType?: DamageTypeKind;
+  armorPenetration?: number;
+  critChance?: number;
+  critMultiplier?: number;
+  bonusDamageToBoss?: number;
   kind: ProjectileKind;
   slowFactor?: number;
   slowDuration?: number;
   burnDps?: number;
   burnDuration?: number;
+  knockbackCols?: number;
+  stunDuration?: number;
+  silenceDuration?: number;
   effectIds?: string[];
   sourceTowerType?: TowerType;
   sourceTowerId?: string;
   passThrough?: boolean;
+  remainingPierce?: number;
   hitEnemyIds?: string[];
   hitObstacleIds?: string[];
   appliedTileMods?: string[];
   chainBounceCount?: number;
   chainBounceRangeCols?: number;
   chainDamageDecay?: number;
+  impactParticleId?: string;
+  trailParticleId?: string;
+  trailTimer?: number;
 }
 
 export interface EnergyDrop {

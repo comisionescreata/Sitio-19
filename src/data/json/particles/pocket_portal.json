@@ -1,0 +1,44 @@
+{
+  "id": "pocket_portal",
+  "name": "Vórtice Dimensional (SCP-106)",
+  "description": "Neblina oscura corrosiva y chispas ámbar de portal.",
+  "category": "aura",
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#B45309",
+        "#F59E0B"
+      ],
+      "count": 1,
+      "durationSec": 0.65,
+      "sizePx": 8,
+      "ringExpandPx": 42,
+      "strokeWidth": 4
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(9, 9, 11, 0.8)",
+        "rgba(120, 53, 15, 0.65)"
+      ],
+      "count": 10,
+      "durationSec": [
+        0.5,
+        0.8
+      ],
+      "sizePx": [
+        9,
+        16
+      ],
+      "sizeEndScale": 1.8,
+      "alphaStart": 0.7,
+      "alphaEnd": 0,
+      "speedPx": [
+        18,
+        45
+      ],
+      "spreadDeg": 360
+    }
+  ]
+}

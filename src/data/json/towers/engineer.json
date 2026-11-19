@@ -1,0 +1,13 @@
+{
+  "type": "engineer",
+  "name": "Ingeniero de Sector",
+  "category": "personal",
+  "cost": 125,
+  "cooldown": 7.5,
+  "maxHp": 200,
+  "unlockLevel": 27,
+  "roleLabel": "Repara 3x3 · +40",
+  "description": "Técnico especializado que repara +40 de salud cada 3.5s a barricadas, búnkeres y personal cercano en 3x3.",
+  "healAmount": 40,
+  "healInterval": 3.5
+}

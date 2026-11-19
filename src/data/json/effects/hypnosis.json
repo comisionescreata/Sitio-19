@@ -1,0 +1,16 @@
+{
+  "id": "hypnosis",
+  "engineMode": "builtin",
+  "category": "aura",
+  "kind": "global_hypnosis",
+  "name": "Hipnosis de SCP-035",
+  "description": "Impide que las torres ofensivas ataquen mientras SCP-035 esté activo, salvo dentro del área 3x3 de una Radio.",
+  "trigger": "continuous_aura",
+  "targetSide": "towers",
+  "areaShape": "global",
+  "color": "#EC4899",
+  "badgeLabel": "HIPNOTIZADA",
+  "modifiers": {
+    "hypnotizeTower": true
+  }
+}

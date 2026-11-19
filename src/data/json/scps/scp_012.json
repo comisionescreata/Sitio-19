@@ -1,0 +1,30 @@
+{
+  "type": "scp_012",
+  "code": "SCP-012",
+  "name": "Mala Composición",
+  "classification": "Euclid · Caída del Cielo",
+  "hp": 360,
+  "speed": 0,
+  "dps": 0,
+  "scoreValue": 105,
+  "portrait": "/src/assets/images/scp-012.jpg",
+  "summary": "Cae del cielo al tablero y acerca 1 casilla cada 5s al personal más cercano de su línea. Si llega a su casilla, lo mata y se cura un 20%.",
+  "tacticalNote": "Destrúyelo rápido con estructuras o tiradores traseros antes de que atraiga a tu personal.",
+  "effects": [
+    "lure_012"
+  ],
+  "announcement": "SCP-012 cae del cielo: atrae al personal más cercano cada 5s.",
+  "behavior": {
+    "laneSpan": 1,
+    "spawnRule": {
+      "mode": "sky",
+      "colRange": [
+        5.2,
+        7.4
+      ]
+    },
+    "skyPull": {
+      "effectId": "lure_012"
+    }
+  }
+}

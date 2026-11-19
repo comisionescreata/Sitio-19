@@ -6,40 +6,51 @@ Esta guía documenta **de principio a fin** cada archivo JSON ubicado en `src/da
 
 ## Índice General
 
-1. [Resumen de Archivos JSON y Carga Segura](#1-resumen-de-archivos-json-y-carga-segura)
+1. [Resumen de Carpetas y Archivos JSON](#1-resumen-de-carpetas-y-archivos-json)
 2. [Panel de Administrador y Herramientas del Archivo Táctico](#2-panel-de-administrador-y-herramientas-del-archivo-táctico)
-3. [`config.json` — Configuración Global del Juego](#3-configjson--configuración-global-del-juego)
-4. [`levels.json` — Niveles, Tablero, Casillas, Lápidas/Obstáculos y Oleadas](#4-levelsjson--niveles-tablero-casillas-lápidasobstáculos-y-oleadas)
-5. [`events.json` — Motor de Eventos (`logic` + `visual`) y Mutación Específica de SCPs](#5-eventsjson--motor-de-eventos-logic--visual-y-mutación-específica-de-scps)
-6. [`characters.json` — Personajes, Retratos PNG y Múltiples Expresiones](#6-charactersjson--personajes-retratos-png-y-múltiples-expresiones)
-7. [`dialogues.json` — Sistema de Diálogos, Ramificaciones, Audio y Eventos](#7-dialoguesjson--sistema-de-diálogos-ramificaciones-audio-y-eventos)
-8. [`effects.json` — Motor Declarativo de Efectos y Prioridades](#8-effectsjson--motor-declarativo-de-efectos-y-prioridades)
-9. [`towers.json` — Personal de Contención y Estructuras Defensivas](#9-towersjson--personal-de-contención-y-estructuras-defensivas)
-10. [`scps.json` — Entidades SCP, Estadísticas y Bloques `behavior`](#10-scpsjson--entidades-scp-estadísticas-y-bloques-behavior)
-11. [`designs.json` — Apariencia Visual, Sprites, Formas Vectoriales y UI](#11-designsjson--apariencia-visual-sprites-formas-vectoriales-y-ui)
-12. [Guía Práctica: Crear una Misión Completa Desde Cero (Lápidas + Diálogos + Eventos + Efectos)](#12-guía-práctica-crear-una-misión-completa-desde-cero)
+3. [`config.json` — Configuración Global y Orden (`levelOrder`, `scpOrder`, `towerOrder`)](#3-configjson--configuración-global-del-juego)
+4. [`levels/<n>.json` — Niveles por Archivo, Portadas (`coverImage`), Casillas, Lápidas y Oleadas](#4-levelsjson--niveles-tablero-casillas-lápidasobstáculos-y-oleadas)
+5. [`objectives.json` / `objetives.json` y `objectives/` — Objetivos, Restricciones de Perímetro y Reglas de Victoria](#5-objectivesjson--objetivos-y-condiciones-de-fallo)
+6. [`events.json` / `events/` — Motor de Eventos (`logic` + `visual`) y Mutación Específica de SCPs](#5-eventsjson--motor-de-eventos-logic--visual-y-mutación-específica-de-scps)
+7. [`characters.json` / `characters/` — Personajes, Retratos PNG y Múltiples Expresiones](#6-charactersjson--personajes-retratos-png-y-múltiples-expresiones)
+8. [`dialogues.json` / `dialogues/` — Sistema de Diálogos, Ramificaciones, Audio y Eventos](#7-dialoguesjson--sistema-de-diálogos-ramificaciones-audio-y-eventos)
+9. [`effects.json` / `effects/` — Motor Declarativo de Efectos y Prioridades](#8-effectsjson--motor-declarativo-de-efectos-y-prioridades)
+10. [`towers.json` / `towers/` — Personal de Contención y Estructuras Defensivas](#9-towersjson--personal-de-contención-y-estructuras-defensivas)
+11. [`scps.json` / `scps/` — Entidades SCP, Estadísticas y Bloques `behavior`](#10-scpsjson--entidades-scp-estadísticas-y-bloques-behavior)
+12. [`designs.json` / `designs/` — Personalización Visual Completa, Sprites, Formas Vectoriales y UI](#11-designsjson--apariencia-visual-sprites-formas-vectoriales-y-ui)
+13. [Guía Práctica: Crear una Misión Completa Desde Cero (Lápidas + Objetivos + Diálogos + Eventos + Efectos)](#12-guía-práctica-crear-una-misión-completa-desde-cero)
+14. [`particles.json` / `particles/` — Sistema Reutilizable de Partículas y Diseño Completo](#13-particlesjson--sistema-reutilizable-de-partículas-y-diseño-completo)
+15. [Programación Completa 100% en JSON: Nuevas Torres (`towers/`) y Nuevos SCP (`scps/`)](#14-programación-completa-100-en-json-nuevas-torres-towersjson-y-nuevos-scp-scpsjson)
 
 ---
 
-## 1. Resumen de Archivos JSON y Carga Segura
+## 1. Resumen de Carpetas y Archivos JSON
 
-Todos los datos se encuentran en `src/data/json/`:
+El juego carga automáticamente **tanto carpetas modulares (un archivo `.json` por elemento)** como los archivos raíz tradicionales en `src/data/json/`. Puedes organizar cada cosa en su carpeta limpia:
 
-| Archivo | Formato Raíz | Estado inicial | Qué controla |
+| Carpeta / Archivo | Convención recomendada | Estado inicial | Qué controla |
 | :--- | :--- | :--- | :--- |
-| `config.json` | Objeto `{ ... }` | Configurado | Parámetros globales, rejilla base, velocidades base de proyectiles, energía del cielo, puertas Tesla y secreto Admin. |
-| `levels.json` | Arreglo `[ ... ]` | Configurado / Editable | Niveles, tamaño del mapa, `boardOverride`, `tileOverrides`, `tileModifiers`, `obstacles`/`tombstones`, entidades iniciales, diálogos, condiciones de victoria y línea de oleadas. |
-| `events.json` | Diccionario `{ "id": {...} }` o Arreglo `[{ "id": ... }]` | Vacío `{}` (listo para empezar desde 0) | Eventos reutilizables o automáticos por disparador que alteran tablero, clima, invocaciones, diálogos, lápidas y atributos de SCPs específicos. |
-| `characters.json` | Diccionario `{ "id": {...} }` o Arreglo `[{ "id": ... }]` | Vacío `{}` (listo para empezar desde 0) | Ficha de personajes narrativos con retratos PNG y soporte para múltiples expresiones faciales/emocionales. |
-| `dialogues.json` | Diccionario `{ "id": {...} }` o Arreglo `[{ "id": ... }]` | Vacío `{}` (listo para empezar desde 0) | Conversaciones tipo novela visual con retratos dinámicos, opciones ramificadas, cambios de energía y disparo de eventos. |
-| `effects.json` | Diccionario `{ "id": {...} }` | Catálogo base | Efectos `builtin` y `declarative` (auras, estados, triggers de impacto/muerte, rebotes en cadena, ejecución, división y transformación). |
-| `towers.json` | Arreglo `[ ... ]` | Catálogo base | Unidades desplegables (`personal` y `estructura`), costes, recargas, reglas de colocación y efectos asociados. |
-| `scps.json` | Arreglo `[ ... ]` | Catálogo base | Enemigos SCP, vida, velocidad, daño, inmunidades y configuraciones `behavior`. |
-| `designs.json` | Objeto `{ ... }` | Catálogo base | Colores del tablero, HUD del canvas, proyectiles, sprites PNG/WebP y formas vectoriales (`customShapes`). |
+| `config.json` | Objeto `{ ... }` | Configurado | Parámetros globales, **`levelOrder`**, `scpOrder`, `towerOrder`, rejilla base, velocidades de proyectiles, energía del cielo, puertas Tesla y secreto Admin. |
+| `levels/<n>.json` (+ `levels.json`) | `1.json`, `2.json`, `3.json`... | Configurado (`1..3`) | Cada nivel en su archivo numerado. Soporta **`coverImage` (portada)**, `objectives`, `victoryCondition`, `tileOverrides`, `tileModifiers`, `obstacles`/`tombstones`, diálogos y oleadas. |
+| `objectives/` + `objectives.json` (`objetives.json`) | `<id>.json` o diccionario | 8 presets listos | Objetivos primarios, secundarios, bonus y condiciones de derrota inmediata (p. ej. **no dejar pasar ningún SCP más allá de la columna 3**). |
+| `scps/<nombre>.json` (+ `scps.json`) | `scp_008.json`, `scp_173.json`... | 17 entidades SCP | Ficha y comportamiento 100% programable de cada SCP (`hp`, `speed`, `dps`, `effects`, `behavior`, `particles`, `inlineDesign`). |
+| `towers/<nombre>.json` (+ `towers.json`) | `guard.json`, `mtf.json`... | 20 torres | Personal y estructuras defensivas (`cost`, `cooldown`, `maxHp`, combate, `particles`, `inlineDesign`). |
+| `effects/<nombre>.json` (+ `effects.json`) | `<id>.json` o diccionario | Catálogo completo | Efectos `builtin` y `declarative` reutilizables en torres, SCPs, casillas y eventos. |
+| `particles/<nombre>.json` (+ `particles.json`) | `<id>.json` o diccionario | 28+ presets | Sistemas de partículas multicapa para despliegues, ataques, explosiones, impactos, auras y obstáculos. |
+| `designs/<seccion>.json` (+ `designs.json`) | `board.json`, `ui.json`, etc. o monolítico | Personalización completa | Colores, sprites, bordes, radios, barras de vida/escudo, líneas de perímetro, proyectiles (`diamond`, `rocket`, `laser_bolt`, `orb`, `ring`, `sprite`), `tileModifiers`, `obstacles` y `hudTheme`. |
+| `events/` + `events.json` | Vacío `{}` | Listo para empezar desde 0 | Eventos reutilizables con bloques `logic` y `visual`. |
+| `characters/` + `characters.json` | Vacío `{}` | Listo para empezar desde 0 | Personajes narrativos con retratos PNG y soporte para múltiples expresiones. |
+| `dialogues/` + `dialogues.json` | Vacío `{}` | Listo para empezar desde 0 | Conversaciones tipo novela visual con retratos dinámicos y ramificaciones. |
 
-> **Nota de robustez**: Los cargadores de `events.json`, `characters.json` y `dialogues.json` toleran tanto diccionarios `{ "mi_id": { ... } }` como arreglos `[{ "id": "mi_id", ... }]`, además de archivos vacíos `{}` o `[]`. Si una entrada en un diccionario omite `"id"`, el cargador asigna automáticamente la clave del diccionario como `id`.
+> **Cómo funciona la carga por carpetas (`import.meta.glob`)**:
+> - En **`levels/`**, nombra cada archivo con el número del nivel (`1.json`, `2.json`, `3.json`, etc.). Si el objeto dentro del archivo omite `"level"`, el cargador deduce el número a partir del nombre del archivo (`1.json` → `level: 1`).
+> - En **`config.json -> levelOrder`**, defines exactamente qué niveles aparecen y en qué orden en la Ruta de Contención (ejemplo: `[1, 2, 3]` o `[1, 3, 2, 10]`). Si un archivo existe en `levels/` pero no figura en `levelOrder`, `levelOrder` marca la prioridad inicial y cualquier nivel extra se añade ordenado por su número (o puedes listar todos en `levelOrder`).
+> - En **`scps/`** y **`towers/`**, si un archivo omite `"type"`, se usa el nombre del archivo como `"type"`. Opcionalmente ordena con `config.json -> scpOrder` y `towerOrder`.
+> - En **`objectives/`**, **`effects/`**, **`particles/`**, **`events/`**, **`characters/`** y **`dialogues/`**, cada archivo puede contener **un solo objeto** (si omite `"id"`, toma el nombre del archivo) o **un diccionario/arreglo de varios**.
+> - En **`objectives.json`** y **`objetives.json`**, el motor acepta ambos nombres de archivo indistintamente (y además la carpeta `objectives/` o `objetives/`).
+> - En **`designs/`**, cualquier archivo JSON (como `designs/board.json` o `designs/hudTheme.json`) se fusiona automáticamente (`deepMerge`) sobre `designs.json`.
 
-> **Rutas de imágenes PNG**: Para retratos de personajes (`characters.json`), sprites de casillas (`tileOverrides`, `tileModifiers`), sprites de lápidas/obstáculos (`obstacles`, `tombstones`) o unidades (`designs.json`), puedes colocar los PNG en `public/assets/...` (y referenciarlos como `"/assets/mi_imagen.png"`) o usar rutas/URLs directas válidas.
+> **Rutas de imágenes PNG**: Para portadas de nivel (`coverImage`), retratos (`characters`), sprites de casillas (`tileOverrides`, `tileModifiers`), lápidas/obstáculos (`obstacles`, `tombstones`) o unidades (`designs`), puedes colocar imágenes en `public/assets/...` (`"/assets/mi_imagen.png"`) o en `src/assets/images/...`.
 
 ---
 
@@ -48,18 +59,12 @@ Todos los datos se encuentran en `src/data/json/`:
 ### Panel de Administrador (`Admin`)
 Accesible desde la pantalla principal con la contraseña definida en `config.json -> admin.secret`:
 
-- **Desbloqueo Personalizado por Nivel (`1..N`)**:
-  - Permite deslizar o escribir el número de nivel exacto que quieres liberar.
-  - **Desbloquear hasta Nivel X**: habilita la selección libre desde el Nivel 1 hasta el Nivel X y desbloquea automáticamente las torres cuyo `unlockLevel` o recompensa sea menor o igual a X, **sin ensuciar tu progreso guardado** en `localStorage`.
-  - **Completar Niveles 1–X**: marca esos niveles como superados y los persiste en `localStorage`.
-  - **Restaurar bloqueo normal**: revierte el desbloqueo temporal de pruebas al progreso real.
-- **Todas las Torres: ON/OFF**: libera todas las torres del catálogo independientemente de los niveles desbloqueados.
-- **Desbloquear Todo / Marcar N/N Completados / Reiniciar Progreso**: accesos rápidos para pruebas completas.
-- **Salto Directo a Nivel**: desbloquea hasta el nivel indicado y abre inmediatamente su partida o pantalla de selección de mazo.
-- **Resumen en vivo del JSON cargado**: muestra el conteo actual de `Niveles`, `Torres`, `SCP`, `Efectos`, `Eventos`, `Personajes` y `Diálogos`.
+- **Desbloqueo Personalizado por Nivel (`1..N`)**: libera niveles específicos sin ensuciar el progreso guardado en `localStorage`, o márcalos como completados hasta X.
+- **Todas las Torres: ON/OFF / Desbloquear Todo / Reiniciar Progreso / Salto Directo a Nivel**.
+- **Resumen en vivo del JSON cargado**: muestra el conteo actual de `Niveles`, `Torres`, `SCP`, `Efectos`, `Objetivos`, `Partículas`, `Eventos`, `Personajes` y `Diálogos`.
 
 ### Archivo Táctico (`Archivo`)
-- Pestañas: **Amenazas SCP**, **Personal y Estructuras**, **Efectos** (incluye **Editor / Constructor JSON** interactivo), **Eventos**, **Personajes** y **Diálogos**.
+- Pestañas: **Amenazas SCP**, **Personal y Estructuras**, **Efectos** (con **Editor / Constructor JSON**), **Objetivos**, **Partículas** (con visor interactivo `<ParticleSystem />`), **Eventos**, **Personajes** y **Diálogos**.
 
 ---
 
@@ -74,91 +79,97 @@ Define los valores globales predeterminados cuando un nivel u objeto específico
   "app": {
     "title": "Sitio-19: Defensa SCP",
     "storageKey": "sitio19_completed_levels_v1",
-    "sectorBackdropImage": "/assets/fondo.webp"
+    "sectorBackdropImage": "/src/assets/images/SCPlogo.webp"
   },
+  "levelOrder": [1, 2, 3],
+  "scpOrder": ["scp_008", "scp_966", "scp_939", "scp_173"],
+  "towerOrder": ["researcher", "guard", "barricade"],
   "grid": {
     "rows": 6,
     "cols": 9
   },
   "boardLayout": {
-    "gateWidth": 52,
-    "breachMargin": 26,
-    "padTop": 18,
-    "padBottom": 18,
-    "cellSize": 96
+    "gateWidth": 58,
+    "breachMargin": 28,
+    "padTop": 14,
+    "padBottom": 14,
+    "cellSize": 92
   },
   "progression": {
-    "autoDeckMaxLevel": 2,
-    "defaultStarterDeck": ["researcher", "guard", "barricade"],
-    "defaultDeckPriority": ["researcher", "guard", "medic", "barricade", "mine"],
+    "autoDeckMaxLevel": 6,
+    "defaultStarterDeck": ["researcher", "guard"],
+    "defaultDeckPriority": ["researcher", "guard", "barricade", "medic"],
     "sectors": [
-      { "id": 1, "label": "Sector Ligero", "start": 1, "end": 5 }
+      { "id": 1, "label": "Sector I (1–10)", "start": 1, "end": 10 }
     ]
   },
   "gameplay": {
-    "energyDropAmount": 25,
-    "initialSkyEnergyDelaySec": 4.5,
-    "skyEnergyIntervalMinSec": 7.5,
-    "skyEnergyIntervalVarianceSec": 4.0,
+    "energyDropAmount": 50,
+    "initialSkyEnergyDelaySec": 10,
+    "skyEnergyIntervalMinSec": 6.5,
+    "skyEnergyIntervalVarianceSec": 2.0,
     "skyEnergyColMin": 1,
-    "skyEnergyColSpan": 7,
-    "energyDropLifetimeSec": 12.0,
+    "skyEnergyColSpan": 6,
+    "energyDropLifetimeSec": 12,
     "energyDropCollectRadiusPx": 34,
     "removeRefundRatio": 0.25,
-    "announcementDurationSec": 4.5,
-    "flagBannerDurationSec": 3.8,
-    "defaultFlagBanner": "¡SE ACERCA UNA GRAN HORDA!",
+    "announcementDurationSec": 5.0,
+    "flagBannerDurationSec": 4.5,
+    "defaultFlagBanner": "¡Se aproxima una GRAN HORDA de SCP!",
     "projectileSpeeds": {
-      "standard": 8.5,
-      "mtf": 10.5,
-      "cryo": 8.0,
-      "turret": 12.5,
-      "sniper": 18.0,
-      "shotgun": 10.0,
-      "pyro": 7.5,
-      "heavy": 11.5,
-      "grenade": 7.0,
-      "psionic": 8.5
+      "standard": 6.4,
+      "mtf": 6.4,
+      "cryo": 6.4,
+      "turret": 7.4,
+      "sniper": 9.6,
+      "shotgun": 7.8,
+      "pyro": 6.4,
+      "heavy": 8.0,
+      "grenade": 5.2,
+      "psionic": 6.4
     },
     "doors079": {
-      "minCol": 3,
-      "toggleMinSec": 5.5,
-      "toggleVarianceSec": 4.0
+      "minCol": 4,
+      "toggleMinSec": 2.2,
+      "toggleVarianceSec": 2.8
     },
     "teslaGate": {
-      "firingDurationSec": 1.15,
-      "sweepSpeedColsPerSec": 10.5
+      "firingDurationSec": 0.75,
+      "sweepSpeedColsPerSec": 15
     }
   },
   "trackUi": {
-    "nodeSpacing": 130,
-    "trackHeight": 230,
-    "waveAmplitude": 46
+    "nodeSpacing": 148,
+    "trackHeight": 246,
+    "waveAmplitude": 44
   },
   "admin": {
-    "secret": "O5-ADMIN",
-    "quickJumpLevels": [1, 5, 10, 15]
+    "secret": "",
+    "quickJumpLevels": [1, 10, 15, 20]
   }
 }
 ```
 
 ### Notas clave de `config.json`
+- **`levelOrder`**: arreglo numérico (`[1, 2, 3, ...]`) que define el orden exacto de los archivos `src/data/json/levels/<n>.json` en la campaña y en la Ruta de Contención.
+- **`scpOrder` / `towerOrder`**: arreglos opcionales de `type` para controlar el orden en que aparecen SCP y torres en el Archivo Táctico y el selector de mazo.
 - `progression.autoDeckMaxLevel`: hasta este número de nivel el juego asigna automáticamente las torres desbloqueadas sin abrir el selector de mazo (a menos que el nivel defina `lockedDeck`).
 - `boardLayout.cellSize`: tamaño en píxeles de cada casilla lógica. El renderizador, las zonas de aura, los sprites de casillas y el cálculo de clics usan este valor dinámicamente.
 
 ---
 
-## 4. `levels.json` — Niveles, Tablero, Casillas, Lápidas/Obstáculos y Oleadas
+## 4. `levels/<n>.json` — Niveles por Archivo, Portadas, Casillas, Lápidas y Oleadas
 
-Archivo raíz: arreglo de objetos `RawLevelConfig[]`.
+Cada nivel se guarda preferentemente en **`src/data/json/levels/<numero>.json`** (por ejemplo `1.json`, `2.json`, `3.json`) y se ordena según `config.json -> levelOrder`.
 
 ### 4.1 Propiedades principales de cada nivel
 
 | Campo | Tipo | Obligatorio | Descripción |
 | :--- | :--- | :--- | :--- |
-| `level` | `number` | Sí | Número único del nivel (`1`, `2`, `3`, ...). |
+| `level` | `number` | Opcional* | Número único del nivel (`1`, `2`, `3`, ...). Si se omite dentro de `levels/4.json`, se infiere `4` del nombre del archivo. |
 | `title` | `string` | Sí | Título mostrado en el selector de niveles y en la barra superior. |
 | `description` | `string` | Sí | Breve resumen estratégico mostrado antes de jugar. |
+| `coverImage` | `string` | No | **Portada del nivel** (también acepta `portrait` o `bannerImage`). Se muestra en la tarjeta principal de campaña y en la cabecera del selector de mazo. Si se omite, usa `config.json -> app.sectorBackdropImage`. |
 | `startingEnergy` | `number` | Sí | Energía inicial disponible al comenzar la partida. |
 | `maxDeckSlots` | `number` | Sí | Máximo de cartas permitidas en el mazo del jugador. |
 | `rows` / `cols` | `number` | No | Dimensiones personalizadas del tablero para ese nivel (`rows`: 1–20, `cols`: 3–24). |
@@ -177,14 +188,15 @@ Archivo raíz: arreglo de objetos `RawLevelConfig[]`.
 | `startingTowers` | `StartingTowerConfig[]` | No | Torres pre-desplegadas al iniciar el nivel (`type`, `row`, `col`, `hp?`, `immuneToPsych?`, `shieldHp?`). |
 | `startingEnemies` | `StartingEnemyConfig[]` | No | SCP ya presentes en el tablero en el segundo `0`. |
 | `startingDoors079` | `StartingDoorConfig[]` | No | Puertas iniciales de SCP-079 (`row`, `col`, `isOpen?`, `toggleIntervalSec?`). |
-| `globalEffects` | `string[]` | No | Lista de IDs de `effects.json` aplicados automáticamente por el entorno del nivel a las unidades que correspondan por `targetSide`. |
-| `levelEvents` | `Array<string \| object>` | No | Lista de eventos dinámicos (IDs de `events.json`, eventos inline o `{ "eventId": "...", ...overrides }`). |
+| `globalEffects` | `string[]` | No | Lista de IDs de `effects` aplicados automáticamente por el entorno del nivel a las unidades que correspondan por `targetSide`. |
+| `levelEvents` | `Array<string \| object>` | No | Lista de eventos dinámicos (IDs de `events`, eventos inline o `{ "eventId": "...", ...overrides }`). |
+| `objectives` | `Array<string \| Partial<ObjectiveDefinition>>` | No | Objetivos primarios, secundarios, bonus o condiciones de fallo (p. ej. `"no_scp_past_col_3"` o un objeto inline completo). |
 | `introDialogueId` | `string` | No | ID de diálogo que se reproduce automáticamente al empezar el nivel. |
 | `victoryDialogueId` | `string` | No | ID de diálogo que se reproduce al cumplir la victoria, justo antes del modal de Nivel Completado. |
 | `defeatDialogueId` | `string` | No | ID de diálogo que se reproduce si ocurre una brecha antes de mostrar la pantalla de Derrota. |
-| `inlineDialogues` | `Record<string, DialogueDefinition>` | No | Diálogos locales definidos dentro del propio nivel (prioridad sobre `dialogues.json` si comparten ID). |
-| `victoryCondition` | `LevelVictoryCondition` | No | Condición alternativa de victoria (`standard`, `survive_time`, `kill_count`). |
-| `enemiesPresent` | `EnemyType[]` | No | Si se omite, el motor los deduce de `events`, `startingEnemies`, `obstacles[].spawnOnDestroy` y `events.json`. |
+| `inlineDialogues` | `Record<string, DialogueDefinition>` | No | Diálogos locales definidos dentro del propio nivel (prioridad sobre `dialogues` si comparten ID). |
+| `victoryCondition` | `LevelVictoryCondition` | No | Condición de victoria y derrota ampliada (`standard`, `survive_time`, `kill_count`, `destroy_obstacles`, `objectives_only`, `survive_and_kill`, `boss_hunt`, `endless`). |
+| `enemiesPresent` | `EnemyType[]` | No | Si se omite, el motor los deduce de `events`, `startingEnemies`, `obstacles[].spawnOnDestroy` y `events`. |
 | `durationSeconds` | `number` | No | Si se omite, se calcula automáticamente a partir de la línea temporal o `victoryCondition.targetSeconds`. |
 | `flagMarkers` | `number[]` | No | Posiciones `0..1` en la barra de progreso; si se omite, se deducen de los eventos con `isFlagHorde: true`. |
 | `rewardLabel` | `string \| null` | No | Texto mostrado al completar el nivel. |
@@ -418,19 +430,105 @@ Ejemplo de lápidas en `levels.json`:
 
 ---
 
-### 4.6 Condición de Victoria (`victoryCondition`)
+### 4.6 Condiciones de Victoria y Derrota (`victoryCondition`)
 
 ```json
 "victoryCondition": {
-  "mode": "standard",
+  "mode": "survive_and_kill",
   "targetSeconds": 120,
   "targetKills": 45,
-  "label": "Resiste 120s"
+  "targetEnemyTypes": ["scp_173", "scp_682"],
+  "targetObstacles": 4,
+  "obstacleKind": "tombstone",
+  "requireClearAfter": true,
+  "breachCol": 0,
+  "defeatOnZeroTowersAfterSec": 25,
+  "label": "Resiste 120s y elimina 45 SCP",
+  "victoryTitle": "Protocolo Alfa Cumplido",
+  "victorySubtitle": "Todos los objetivos de contención fueron asegurados."
 }
 ```
-- `"standard"`: Todas las oleadas de `events[]` y apariciones escalonadas terminan y no quedan SCP vivos en el mapa.
-- `"survive_time"`: Aguantar `targetSeconds` segundos sin sufrir brecha.
-- `"kill_count"`: Contener al menos `targetKills` SCP.
+
+#### Todos los modos `mode` soportados:
+| Modo | Cómo se gana |
+| :--- | :--- |
+| `"standard"` | Todas las oleadas de `events[]` terminan, no quedan SCP vivos en el tablero y todos los objetivos primarios están cumplidos. |
+| `"survive_time"` | Aguantar `targetSeconds` segundos (+ limpiar enemigos si `requireClearAfter: true`) y cumplir objetivos primarios. |
+| `"kill_count"` | Eliminar al menos `targetKills` SCP (global o filtrado por `targetEnemyTypes`) y cumplir objetivos primarios. |
+| `"survive_and_kill"` | Combinar tiempo (`targetSeconds`) **y** bajas (`targetKills`), útil para asedios exigentes. |
+| `"destroy_obstacles"` | Destruir todos los obstáculos (o `targetObstacles` del tipo `obstacleKind`) y opcionalmente limpiar enemigos (`requireClearAfter`). |
+| `"objectives_only"` | La victoria salta en cuanto se completan todos los objetivos `"primary"` / `requiredForVictory: true` del nivel (ideal para misiones tácticas). |
+| `"boss_hunt"` | Neutralizar a todos los tipos listados en `targetEnemyTypes` (p. ej. `["scp_682"]`). |
+| `"endless"` | Modo infinito: cuando termina la línea temporal, reinicia las oleadas en un nuevo ciclo progresivamente más difícil (`endlessCycle`) sin finalizar por victoria. |
+
+#### Reglas adicionales de derrota en `victoryCondition`:
+- **`breachCol`** (`number`): columna a partir de la cual se dispara la brecha/Tesla izquierda (por defecto `-0.22`). Si pones p. ej. `2.5`, los SCP provocan brecha antes del borde izquierdo.
+- **`defeatOnZeroTowersAfterSec`** (`number`): si a partir de ese segundo de partida no queda ninguna torre viva en el tablero, pierdes automáticamente.
+- **`victoryTitle` / `victorySubtitle`**: textos personalizados para el modal de victoria.
+
+---
+
+## 5. `objectives.json` / `objetives.json` y `objectives/` — Objetivos y Restricciones de Perímetro
+
+Los objetivos se pueden definir en `src/data/json/objectives/<id>.json`, en `src/data/json/objectives.json` o `src/data/json/objetives.json`, o directamente inline dentro de `levels/<n>.json -> objectives[]`.
+
+### 5.1 Presets incluidos en `src/data/json/objectives/`
+- `"no_scp_past_col_3"`: **No dejes que ningún SCP cruce más allá de la columna 3** (dibuja una línea roja vertical en la columna 3 y provoca derrota inmediata si algún enemigo la pisa).
+- `"no_scp_past_col_4"`: Límite de perímetro en la columna 4.
+- `"no_tesla_gate"`: No activar ninguna puerta Tesla de emergencia.
+- `"max_2_towers_lost"`: No perder más de 2 torres desplegadas.
+- `"kill_15_scps"`: Contener al menos 15 SCP.
+- `"destroy_all_tombstones"`: Despejar todas las lápidas del tablero.
+- `"protect_tombstones"`: Proteger los nodos/lápidas sin que sean destruidos por enemigos.
+- `"min_energy_200"`: Terminar el nivel con al menos 200 de energía.
+
+### 5.2 Cómo referenciar o personalizar un objetivo en un nivel
+Puedes mezclar strings (IDs) y objetos con sobrescrituras parciales o definiciones completas:
+```json
+"objectives": [
+  "no_scp_past_col_3",
+  { "objectiveId": "kill_15_scps", "targetCount": 25, "description": "Elimina 25 SCP en el corredor." },
+  {
+    "id": "sin_bajas_medicos",
+    "title": "Proteger Médicos",
+    "description": "No pierdas más de 1 unidad o se aborta la misión.",
+    "category": "fail_condition",
+    "kind": "max_towers_lost",
+    "maxCount": 1,
+    "failOnViolate": true,
+    "failReason": "Se perdieron demasiados efectivos médicos."
+  }
+]
+```
+
+### 5.3 Todos los `kind` soportados en `ObjectiveDefinition`
+
+| `kind` | Qué evalúa | Parámetros clave |
+| :--- | :--- | :--- |
+| `"no_enemy_past_col"` | Falla si un SCP alcanza `col <= def.col` (ej. `col: 3`). Dibuja línea vertical automática en el canvas. | `col`, `ignoreSkyFalling?`, `enemyTypes?`, `excludeEnemyTypes?`, `showBoundaryLine?`, `boundaryColor?`, `boundaryLabel?` |
+| `"no_enemy_reach_row_col"` | Falla si un SCP entra en el rectángulo `rows` × `[minCol..maxCol]`. | `rows?`, `minCol?`, `maxCol?`, `col?`, `enemyTypes?` |
+| `"no_tesla_gate_used"` | Falla si se activa cualquier compuerta Tesla de emergencia. | `failOnViolate?` |
+| `"max_tesla_gates_used"` | Falla si se activan más de `maxCount` compuertas Tesla. | `maxCount` |
+| `"max_towers_lost"` | Falla si mueren más de `maxCount` torres. | `maxCount` |
+| `"max_towers_deployed"` | Falla si despliegas más de `maxCount` torres en toda la partida. | `maxCount` |
+| `"max_towers_alive"` | Falla si hay más de `maxCount` torres vivas a la vez. | `maxCount`, `towerTypes?`, `towerCategory?` |
+| `"min_towers_alive"` | Exige mantener al menos `minCount` torres activas. | `minCount`, `towerTypes?`, `towerCategory?` |
+| `"protect_obstacles"` | Falla si los SCP destruyen más de `maxCount` obstáculos (`obstacleKind?`). | `maxCount`, `obstacleKind?` |
+| `"destroy_all_obstacles"` | Se completa cuando todos los obstáculos (`obstacleKind?`) han sido destruidos. | `obstacleKind?`, `rewardEnergy?` |
+| `"kill_enemies"` | Se completa al eliminar `targetCount` SCP (filtrable por `enemyTypes` / `excludeEnemyTypes`). | `targetCount`, `enemyTypes?`, `excludeEnemyTypes?`, `rewardEnergy?` |
+| `"min_energy_remaining"` | Evalúa al terminar la misión si conservas al menos `minEnergy` de energía. | `minEnergy` |
+| `"max_energy_spent"` | Falla si el gasto acumulado en despliegues supera `maxEnergy`. | `maxEnergy` |
+| `"survive_time"` | Se completa al llegar a `targetSeconds` segundos. | `targetSeconds`, `rewardEnergy?` |
+| `"no_tower_type_used"` | Falla si el jugador coloca alguna torre listada en `towerTypes`. | `towerTypes` |
+| `"keep_tower_hp_above"` | Falla si alguna torre viva cae por debajo de `minHpRatio` (`0..1`) de salud. | `minHpRatio`, `towerTypes?`, `towerCategory?` |
+| `"event_triggered"` | Se completa cuando se ejecuta el evento `eventId` de `events`. | `eventId` |
+
+### 5.4 Campos comunes de `ObjectiveDefinition`
+- `id`, `title`, `description`, `color`
+- `category`: `"primary" | "secondary" | "bonus" | "fail_condition"`
+- `requiredForVictory`: `true` impide ganar la partida hasta que el objetivo esté completo.
+- `failOnViolate`: `true` provoca **derrota inmediata** en el instante en que se incumpla el límite (con mensaje `failReason` en pantalla).
+- `rewardEnergy`: energía instantánea otorgada al completar un objetivo progresivo.
 
 ---
 
@@ -873,13 +971,32 @@ Arreglo `[ ... ]` con cada enemigo:
 
 ---
 
-## 11. `designs.json` — Apariencia Visual, Sprites, Formas Vectoriales y UI
+## 11. `designs.json` y `designs/` — Personalización Visual Completa, Sprites, Formas Vectoriales y UI
 
-Controla todo el renderizado en el `<canvas>`:
+Controla absolutamente todo el apartado visual del `<canvas>` y la interfaz HUD (se puede editar en `designs.json` o dividir por sección en `src/data/json/designs/<seccion>.json`, por ejemplo `designs/board.json` o `designs/hudTheme.json`):
 
-- **`board`**: `canvasBg`, `gateBg`, `breachBg`, `bgImage`, `bgImageOpacity`, `tileEven`, `tileOdd`, `tileSpriteEven`, `tileSpriteOdd`, `tileStroke`, `tileStrokeWidth`, `arrowFill`, `arrowColumns`, `adaptArrowsToGrid`, `laneStroke`, `laneStrokeWidth`, `breachStripeDark`, `breachStripeAmber`, `blinkOverlayRgb`.
-- **`zones`, `gates`, `doors079`, `statuses`, `badges`, `effects`, `fonts`, `ui`**: personalización pixel-perfect de barras de vida, etiquetas, puertas Tesla, puertas 079, sombras y orbes de energía.
-- **`defaultTower`, `defaultEnemy`, `defaultProjectile`**: diseño automático si añades un `type` nuevo en JSON sin entrada propia en `towers`/`enemies`/`projectiles`.
+- **`board` (Personalización extrema del tablero y perímetro)**:
+  - Colores y fondo: `canvasBg`, `gateBg`, `breachBg`, `bgImage`, `bgImageOpacity`.
+  - Casillas: `tileEven`, `tileOdd`, `tileSpriteEven`, `tileSpriteOdd`, `tileStroke`, `tileStrokeWidth`, `tileCornerRadius`, `tileGap`, `tileHighlightColor`.
+  - Flechas direccionales: `arrowFill`, `arrowColumns`, `adaptArrowsToGrid`, `arrowStyle` (`"chevron" | "triangle" | "line"`), `arrowScale`.
+  - Carriles y etiquetas laterales: `laneStroke`, `laneStrokeWidth`, `laneAlternateTint`, `showLaneNumbers`, `laneLabelPrefix`, `laneNumberColor`.
+  - Zona de puertas Tesla y brecha: `gateLabel`, `gateLabelColor`, `gateBorderColor`, `gateBorderWidth`, `breachLabel`, `breachLabelColor`, `breachStripeDark`, `breachStripeAmber`, `breachStripeWidth`, `breachStripeHeight`, `outerBorderColor`, `outerBorderWidth`.
+  - Líneas de límite de objetivos (`no_enemy_past_col`): `boundaryLineColor`, `boundaryLineWidth`, `boundaryLineDash`, `boundaryLabelBg`, `boundaryLabelText`.
+  - Parpadeo de SCP-173: `blinkOverlayRgb`, `blinkMaxAlpha`.
+- **`obstacles` (Estilos por `kind`: `tombstone`, `barricade`, `debris`, `pillar`, `anomaly_node`, etc.)**:
+  - `color`, `crackedColor`, `strokeColor`, `crackColor`, `labelColor`, `hpBarColor`, `hpBarWidth`, `cornerRadius`, `sprite`, `crackedSprite`.
+- **`tileModifiers` (Estilos visuales por modificador de casilla)**:
+  - Soporta claves como `heal_tower`/`heal`, `boost_fire_rate`/`boost_fire`, `boost_damage`, `energy_pad`/`energy`, `shield_pad`/`shield`, `slow_enemy`, `speed_enemy`, `damage_enemy`, `ignite_projectiles`, `cryo_projectiles`/`chill_projectiles`, `hazard_void`, `heal_enemy`, `pierce_projectiles`, `boost_projectile_damage`, `regen_barrier`, `block_enemy_spawn`, `apply_effect`.
+  - Campos por clave: `color`, `borderColor`, `label`, `opacity`, `pulseSpeed`, `sprite`.
+- **`projectiles` y `defaultProjectile`**:
+  - Formas soportadas (`shape`): `"circle"`, `"streak"`, `"pellet_cluster"`, **`"diamond"`**, **`"laser_bolt"`**, **`"orb"`**, **`"rocket"`**, **`"ring"`**, **`"sprite"`** (con imagen propia `sprite`, `spriteWidth`, `spriteHeight`), o cualquier forma vectorial de `customShapes`.
+  - Extras: `rotateToVelocity`, `spinSpeed`, `outlineColor`, `outlineWidth`, `glowColor`, `glowBlur`, `trailLength`, `trailColor`, `trailWidth`, `pulseSpeed`, `alpha`, `trailParticleId`, `impactParticleId`.
+- **`zones`, `gates`, `doors079`, `statuses`, `badges`, `effects`, `fonts`**:
+  - Personalización pixel-perfect de radios, anchos de línea, colores RGB, destellos de daño, escudos, etiquetas de estado y fuentes tipográficas.
+- **`ui` y `hudTheme`**:
+  - En `ui`: `hpBarBg`, `hpBarHigh`, `hpBarMid`, `hpBarLow`, `hpBarRadius`, `hpBarBorderColor`, `hpBarBorderWidth`, `shieldBarColor`, `shieldBarHeight`, `shieldGlowColor`, `energyDropShape` (`"circle" | "diamond" | "cell"`), `energyDropSprite`, `energyDropPulseSpeed`, `energyDropLabelPrefix`, `enemyLabelBg`, `enemyLabelRadius`, `floatingTextShadowColor`, `floatingTextScale`.
+  - En `hudTheme`: `accentColor`, `panelBg`, `panelBorder`, `canvasBorderColor`, `headerBg` para teñir la barra superior, el mazo y el marco del tablero.
+- **`defaultTower` y `defaultEnemy`**: diseño automático de respaldo para cualquier torre o SCP nuevo definido por JSON (con `shadowColor`, `shadowRadiusX`, `hpBarFill`, `hpBarBg`, `shieldBarColor`, `shieldRingColor`, `stealthAlpha`, `burnTint`, `stunRingColor`, `recoilScale`, `opacity`, etc.).
 - **Sprites por entidad**: `sprite`, `spriteMode` (`"replace" | "under" | "over"`), `spriteWidth`, `spriteHeight`, `spriteOffsetX`, `spriteOffsetY`, `spriteFlipX`, `spriteOpacity`.
 - **Formas vectoriales (`customShapes` y `layers`)**: primitivas (`rect`, `roundRect`, `circle`, `ellipse`, `polygon`, `line`, `arc`, `text`) con tokens `$body`, `$stroke`, `$head`, `$accent`, `$aura`, `$slowBody` y condiciones (`always`, `slowed`, `disabled`, `armed`, `enraged`, `convulsing`, `damaged`, `burning`).
 
@@ -887,7 +1004,7 @@ Controla todo el renderizado en el `<canvas>`:
 
 ## 12. Guía Práctica: Crear una Misión Completa Desde Cero
 
-A continuación tienes un flujo real coordinado entre los archivos JSON nuevos (que parten vacíos) y `levels.json`:
+A continuación tienes un flujo real coordinado usando la nueva estructura modular de carpetas:
 
 1. **En `src/data/json/characters.json`**: define tus personajes con retratos PNG y sus expresiones (`neutral`, `alerta`, `herido`).
 2. **En `src/data/json/dialogues.json`**: crea el diálogo de inicio (`intro_sector_cripta`) y uno intermedio (`boss_fase_2`).
@@ -903,3 +1020,240 @@ A continuación tienes un flujo real coordinado entre los archivos JSON nuevos (
    - `levelEvents: ["emboscada_lapidas", "furia_mutante"]`
 
 Con esa combinación dispones de narrativa visual completa con PNGs y expresiones, casillas totalmente personalizadas, obstáculos tipo PvZ y eventos reactivos capaces de transformar o mutar SCPs concretos en plena batalla.
+
+---
+
+## 13. `particles.json` — Sistema Reutilizable de Partículas y Diseño Completo
+
+El sistema de partículas consta de:
+1. **`src/data/json/particles.json`**: catálogo completo de presets multicapa (`attack`, `explosion`, `deployment`, `impact`, `aura`, `obstacle`, `custom`).
+2. **Motor `ParticleSystem`** (`src/engine/particleSystem.ts`): integrado dentro del bucle de `simulation.ts` y `renderer.ts`, con límite automático de partículas activas (`450`) y mezcla aditiva (`lighter`, `screen`).
+3. **Componente React `<ParticleSystem />`** (`src/components/ParticleSystem.tsx`): lienzo `<canvas>` reutilizable con `ref` imperativo (`emitPreset`, `emitCustom`, `clear`, `getActiveCount`), `emitRequests` declarativos, `autoLoopPresetId`, modo interactivo por clic y guías de cuadrícula (integrado en la pestaña **Partículas** del Archivo Táctico).
+
+### Estructura de un Preset en `particles.json`
+
+| Campo | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `id` | `string` | Identificador único del preset (ej. `"explosion_grenade"`, `"mi_explosion_plasma"`). |
+| `name` | `string` | Nombre visible en el Archivo Táctico. |
+| `description` | `string` | Descripción breve del efecto visual. |
+| `category` | `"attack" \| "explosion" \| "deployment" \| "impact" \| "aura" \| "obstacle" \| "custom"` | Categoría organizativa. |
+| `emitters` | `ParticleEmitterConfig[]` | Arreglo de uno o varios emisores combinados simultáneamente o con retraso (`delaySec`). |
+| `screenFlashRgb` | `string` | Color RGB opcional (`"251, 146, 60"`) para destello de pantalla al emitir en partida. |
+| `screenFlashAlpha` | `number` | Opacidad del destello (`0` a `1`). |
+| `screenShake` | `number` | Intensidad de temblor de cámara opcional. |
+| `sound` | `EffectSoundKey \| string` | Sonido opcional al emitir (`"explosion"`, `"heal"`, `"tesla"`, `"portal"`, etc.). |
+
+### Propiedades de cada `ParticleEmitterConfig`
+
+| Propiedad | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `shape` | `"circle" \| "square" \| "spark" \| "ring" \| "star" \| "cross" \| "shard" \| "smoke" \| "sprite"` | Geometría de la partícula (o imagen PNG/WebP con `shape: "sprite"`). |
+| `sprite` | `string` | Ruta a imagen si `shape: "sprite"` (ej. `"/assets/chispa.png"`). |
+| `colors` | `string[]` | Lista de colores hex o `rgba(...)` entre los que se elige aleatoriamente por partícula. |
+| `colorEnd` | `string` | Color hex final hacia el que interpola durante su vida útil. |
+| `count` | `number \| [min, max]` | Cantidad de partículas emitidas (fijo o rango aleatorio). |
+| `durationSec` | `number \| [min, max]` | Duración de vida en segundos. |
+| `sizePx` | `number \| [min, max]` | Tamaño inicial en píxeles. |
+| `sizeEndScale` | `number` | Factor de escala al morir (ej. `0.1` encoge, `2.4` expande como humo). |
+| `ringExpandPx` | `number` | Radio máximo adicional si `shape === "ring"`. |
+| `alphaStart` / `alphaEnd` | `number` | Opacidad inicial y final (`0..1`). |
+| `speedPx` | `number \| [min, max]` | Velocidad inicial en píxeles/segundo. |
+| `angleDeg` | `number` | Ángulo central de emisión (`0` = derecha, `-90` = arriba, `180` = izquierda, `90` = abajo). |
+| `spreadDeg` | `number` | Apertura del cono de dispersión (`360` = explosión omnidireccional). |
+| `gravityPx` | `number` | Gravedad vertical (`> 0` cae, `< 0` flota hacia arriba). |
+| `drag` | `number` | Rozamiento/frenado exponencial por segundo (`0` = sin freno). |
+| `spinDegPerSec` | `number \| [min, max]` | Velocidad de rotación por segundo (ideal para `shard`, `star`, `square`). |
+| `offsetX` / `offsetY` | `number` | Desplazamiento del origen en píxeles respecto al centro de celda. |
+| `spawnRadiusPx` | `number` | Radio aleatorio alrededor del origen donde nacen las partículas. |
+| `blendMode` | `"source-over" \| "lighter" \| "screen"` | `"lighter"` crea brillo energético aditivo real. |
+| `glowColor` / `glowBlur` | `string` / `number` | Halo luminoso (`shadowColor` / `shadowBlur`). |
+| `strokeColor` / `strokeWidth` | `string` / `number` | Borde de la partícula. |
+| `delaySec` | `number` | Retraso antes de disparar este emisor respecto al inicio del preset (para ondas secundarias). |
+
+### Dónde se pueden conectar los IDs de `particles.json`
+- En **Torres (`towers.json -> particles`)**: `onDeploy`, `onAttack`, `onHit`, `onDeath`, `projectileTrail`.
+- En **SCPs (`scps.json -> particles`)**: `onSpawn`, `onAttack`, `onDamaged`, `onKill`, `onDeath`, `trail`, `trailIntervalSec`.
+- En **SCPs (`scps.json -> behavior`)**: `rangedAttack.particlePresetId`, `summonPeriodic.particlePresetId`, `enrageOnLowHp.particlePresetId`, `onKillConvertTo.particlePresetId`, `onDeathSplit.particlePresetId`, `onDeathExplosion.particlePresetId`.
+- En **Efectos (`effects.json -> visual.particlePresetId`)**.
+- En **Eventos (`events.json -> visual.particlePresetId`)**.
+- En **Proyectiles (`designs.json -> projectiles[kind]`)**: `trailParticleId`, `impactParticleId`.
+
+---
+
+## 14. Programación Completa 100% en JSON: Nuevas Torres (`towers.json`) y Nuevos SCP (`scps.json`)
+
+Ya no estás limitado a los IDs integrados (`"guard"`, `"scp_008"`, etc.). Puedes inventar cualquier `type` nuevo (ej. `"tesla_sentinel"`, `"scp_1048_a"`) directamente en JSON, definir toda su lógica de combate, su economía, sus ganchos de efectos/eventos/partículas y su aspecto visual (`inlineDesign`) sin tocar una sola línea de TypeScript.
+
+### A. Todos los campos programables en `towers.json`
+
+| Grupo | Campos soportados | Descripción |
+| :--- | :--- | :--- |
+| **Identidad y Economía** | `type`, `name`, `category` (`"personal" \| "estructura"`), `cost`, `costScalePerDeployed`, `cooldown`, `maxHp`, `unlockLevel`, `roleLabel`, `description` | `costScalePerDeployed` incrementa dinámicamente el coste por cada copia viva en tablero. |
+| **Defensa y Supervivencia** | `shieldOnDeploy`, `shieldColor`, `shieldRegenPerSec`, `maxShieldHp`, `regenHpPerSec`, `thornsDps`, `reflectDamagePercent`, `lifestealRatio`, `immuneToPsych`, `canBeHypnotized` | Escudos con recarga, espinas al recibir mordidas, reflexión porcentual y robo de vida. |
+| **Ataque y Proyectiles** | `fireRate`, `damage`, `damageType` (`"physical" \| "explosion" \| "fire" \| "cryo" \| "electric" \| "psionic" \| "true"`), `armorPenetration` (`0..1`), `bonusDamageToBoss`, `critChance`, `critMultiplier`, `burstCount`, `projectileCountPerShot`, `projectileRowSpread`, `maxRangeCols`, `canTargetRows`, `attackBehind`, `targetPriority`, `passThrough`, `pierceCount`, `projectileKind`, `projectileSpeed` | Permite escopetas multi-fila (`projectileCountPerShot` + `projectileRowSpread`), francotiradores con perforación (`pierceCount`), daño verdadero (`damageType: "true"`), críticos o defensa trasera (`attackBehind`). |
+| **Control de Masas y Área** | `splashRadius`, `chainBounceCount`, `chainBounceRangeCols`, `chainDamageDecay`, `knockbackCols`, `stunDuration`, `silenceDuration`, `slowFactor`, `slowDuration`, `burnDps`, `burnDuration`, `floorTrapDps`, `aoeTargets`, `aoeRadiusRows`, `aoeRadiusCols` | Rayos en cadena al impactar, aturdimiento, silencio de habilidades SCP, empuje, quemadura o trampas de suelo. |
+| **Economía, Curación y Minas** | `energyAmount`, `energyInterval`, `deployEnergyBonus`, `healAmount`, `healInterval`, `armTime`, `explosionDamage`, `explosionRadiusCols`, `explosionRadiusRows` | Generación periódica o instantánea al desplegar, curación en área o minas armables. |
+| **Reglas de Colocación** | `placementRule` (`"any" \| "frontHalf" \| "backHalf" \| "rows" \| "cols"`), `allowedRows`, `allowedCols`, `canPlaceOnObstacles`, `maxPerBoard`, `maxPerRow` | Restringe filas/columnas, permite colocar encima de lápidas/obstáculos o limita copias máximas. |
+| **Ganchos Reactivos, Partículas y Audio** | `effects`, `onDeployEffects`, `onAttackEffects`, `onHitEffects`, `onDeathEffects`, `onDeathExplosionDamage`, `onDeathExplosionRadius`, `onDeployTriggerEventId`, `onDeathTriggerEventId`, `particles`, `soundOnDeploy`, `soundOnAttack`, `soundOnDeath`, `inlineDesign` | Dispara efectos de `effects.json`, eventos de `events.json` o explosiones al morir; personaliza el dibujo sin abrir `designs.json`. |
+
+### B. Todos los campos programables en `scps.json` (`EnemyDefinition` + `behavior`)
+
+Además de `type`, `code`, `name`, `classification`, `hp`, `speed`, `dps`, `scoreValue`, `portrait`, `summary`, `tacticalNote`, `effects`, `isSummon`, `announcement`, `particles`, `soundOnSpawn`, `soundOnDeath` e `inlineDesign`, el objeto `behavior` admite:
+
+| Bloque en `behavior` | Campos clave | Qué logra sin código TypeScript |
+| :--- | :--- | :--- |
+| **Defensa y Pasivas** | `immunities`, `damageReduction` (`0..0.95`), `maxDamagePerHit`, `knockbackResist` (`0..1`), `dodgeChance` (`0..1`), `initialShieldHp`, `shieldColor`, `shieldRegenPerSec`, `regenHpPerSec`, `thornsDps`, `reflectDamagePercent`, `lifestealRatio`, `reviveCount`, `reviveHpPercent` | Tanques con escudo regenerativo, armadura porcentual o tope máximo por golpe (anti-francotirador), evasión, espinas, robo de vida y múltiples resurrecciones. |
+| **Sigilo y Movilidad** | `untargetableUntilCol`, `laneHopIntervalSec`, `laneHopMode` (`"random" \| "toward_towers" \| "avoid_towers"`), `speedScaleAsHpDrops: { maxBonusMultiplier }`, `laneSpan`, `defaultPackCount` | Enemigos invisibles hasta cierta columna, saltos tácticos entre carriles, aceleración al perder vida u ocupación multi-carril (`laneSpan: 2`). |
+| **Furia al Perder Vida** | `enrageOnLowHp: { hpRatio, triggerCol, convulseSec, newHp, speedMultiplier, dpsMultiplier, stunRadiusRow, stunRadiusCol, stunSec, badge, color, sound, particlePresetId }` | Fase 2 automática para cualquier SCP personalizado: convulsión, multiplicadores de velocidad/daño, pulso aturdidor y etiqueta nueva. |
+| **Ataque a Distancia** | `rangedAttack: { rangeCols, intervalSec, damage, splashRadius, stunSec, rowSpan, particlePresetId, beamColor, sound }` | Permite a cualquier SCP disparar rayos o proyectiles a varias columnas de distancia contra torres. |
+| **Invocación Periódica** | `summonPeriodic: { intervalSec, initialDelaySec, type, count, offsetCol, rowSpread, maxAlive, hpMultiplier, speedMultiplier, dpsMultiplier, sound, particlePresetId }` | Jefes o portadores que invocan secuaces periódicamente con tope `maxAlive`. |
+| **Reacciones al Matar / Morir** | `onKillConvertTo: { type, hpMultiplier, particlePresetId }`, `onDeathSplit: { type, count, spreadRows, hpMultiplier, particlePresetId }`, `onDeathExplosion: { radiusCols, radiusRows, damage, stunSec, particlePresetId, sound }`, `rewardsEnergyOnKill`, `onSpawnTriggerEventId`, `onDeathTriggerEventId` | Convierte torres abatidas en nuevos SCP, divide en múltiples crías al morir, explota al caer, otorga energía al jugador o dispara un evento/diálogo de `events.json`. |
+
+### C. Ejemplo Completo Listo para Copiar: Nueva Torre + Nuevo SCP + Preset de Partículas
+
+**1. En `src/data/json/particles.json` (añadir una clave nueva):**
+```json
+"plasma_arc_custom": {
+  "id": "plasma_arc_custom",
+  "name": "Arco de Plasma Custom",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "spark",
+      "colors": ["#22D3EE", "#A5F3FC", "#FFFFFF"],
+      "count": 10,
+      "durationSec": [0.22, 0.42],
+      "sizePx": [2.5, 4.5],
+      "speedPx": [70, 160],
+      "angleDeg": 0,
+      "spreadDeg": 360,
+      "drag": 3.5,
+      "blendMode": "lighter",
+      "glowColor": "#22D3EE",
+      "glowBlur": 8
+    }
+  ]
+}
+```
+
+**2. En `src/data/json/towers.json` (añadir al final del arreglo):**
+```json
+{
+  "type": "plasma_warden",
+  "name": "Centinela de Plasma",
+  "category": "personal",
+  "cost": 185,
+  "costScalePerDeployed": 25,
+  "cooldown": 14,
+  "maxHp": 420,
+  "shieldOnDeploy": 160,
+  "shieldColor": "#22D3EE",
+  "shieldRegenPerSec": 8,
+  "unlockLevel": 1,
+  "roleLabel": "Arco Perfora-Armadura",
+  "description": "Dispara descargas de plasma que atraviesan 2 enemigos, rebotan en cadena y tienen probabilidad de golpe crítico contra jefes.",
+  "fireRate": 1.15,
+  "damage": 44,
+  "damageType": "electric",
+  "armorPenetration": 0.65,
+  "bonusDamageToBoss": 25,
+  "critChance": 0.2,
+  "critMultiplier": 1.85,
+  "pierceCount": 1,
+  "chainBounceCount": 2,
+  "chainBounceRangeCols": 1.6,
+  "chainDamageDecay": 0.65,
+  "stunDuration": 0.35,
+  "projectileKind": "turret",
+  "projectileSpeed": 12.5,
+  "particles": {
+    "onDeploy": "deploy_personal",
+    "onAttack": "attack_tesla",
+    "onHit": "plasma_arc_custom",
+    "onDeath": "death_tower"
+  },
+  "inlineDesign": {
+    "shape": "guard",
+    "body": "#0F172A",
+    "stroke": "#22D3EE",
+    "strokeWidth": 2.4,
+    "headOrTop": "#164E63",
+    "accent": "#22D3EE",
+    "weaponOrDetail": "#67E8F9",
+    "label": "PLM"
+  }
+}
+```
+
+**3. En `src/data/json/scps.json` (añadir al final del arreglo):**
+```json
+{
+  "type": "scp_custom_harbinger",
+  "code": "SCP-CUSTOM",
+  "name": "Heraldo del Vacío",
+  "classification": "Keter",
+  "hp": 950,
+  "speed": 0.34,
+  "dps": 55,
+  "scoreValue": 300,
+  "portrait": "/assets/scp_custom.png",
+  "summary": "Entidad acorazada invisible a larga distancia que dispara pulsos a distancia, cambia de carril y se divide al morir.",
+  "tacticalNote": "Solo puede ser atacado cuando cruza la columna 6.5. Prepárate para neutralizar las crías que libera al caer.",
+  "effects": [],
+  "announcement": "ALERTA DE CONTENCIÓN: Heraldo del Vacío detectado en el sector.",
+  "particles": {
+    "onSpawn": "deploy_scp",
+    "onAttack": "impact_psionic",
+    "onDeath": "explosion_massive",
+    "trail": "trail_psionic",
+    "trailIntervalSec": 0.25
+  },
+  "behavior": {
+    "initialShieldHp": 280,
+    "shieldColor": "#C084FC",
+    "damageReduction": 0.2,
+    "untargetableUntilCol": 6.5,
+    "laneHopIntervalSec": 5.5,
+    "laneHopMode": "toward_towers",
+    "rewardsEnergyOnKill": 50,
+    "rangedAttack": {
+      "rangeCols": 2.4,
+      "intervalSec": 3.2,
+      "damage": 35,
+      "stunSec": 0.6,
+      "beamColor": "#C084FC",
+      "particlePresetId": "plasma_arc_custom",
+      "sound": "portal"
+    },
+    "enrageOnLowHp": {
+      "hpRatio": 0.4,
+      "convulseSec": 0.7,
+      "speedMultiplier": 1.5,
+      "dpsMultiplier": 1.35,
+      "badge": "SOBRECARGA",
+      "color": "#A855F7",
+      "particlePresetId": "scream_066"
+    },
+    "onDeathSplit": {
+      "type": "scp_049_2",
+      "count": 2,
+      "spreadRows": 1,
+      "hpMultiplier": 0.6,
+      "particlePresetId": "revive_plague"
+    }
+  },
+  "inlineDesign": {
+    "shape": "zombie",
+    "body": "#3B0764",
+    "stroke": "#C084FC",
+    "strokeWidth": 2.2,
+    "head": "#581C87",
+    "accent": "#E879F9",
+    "hpBar": "#C084FC",
+    "barWidth": 42,
+    "codeLabel": "VOID"
+  }
+}
+```
+

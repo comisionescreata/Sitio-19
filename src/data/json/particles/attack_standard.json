@@ -1,0 +1,52 @@
+{
+  "id": "attack_standard",
+  "name": "Fogonazo Estándar",
+  "description": "Destello direccional de cañón para rifles tácticos.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "circle",
+      "colors": [
+        "#FEF08A",
+        "#F59E0B"
+      ],
+      "count": 1,
+      "durationSec": 0.1,
+      "sizePx": 8,
+      "sizeEndScale": 0.2,
+      "offsetX": 22,
+      "offsetY": -1,
+      "blendMode": "lighter",
+      "glowColor": "#F59E0B",
+      "glowBlur": 8
+    },
+    {
+      "shape": "spark",
+      "colors": [
+        "#FDE047",
+        "#F59E0B",
+        "#FFFFFF"
+      ],
+      "count": 5,
+      "durationSec": [
+        0.12,
+        0.22
+      ],
+      "sizePx": [
+        2,
+        3.2
+      ],
+      "sizeEndScale": 0.1,
+      "speedPx": [
+        70,
+        150
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 48,
+      "drag": 4.5,
+      "offsetX": 22,
+      "offsetY": -1,
+      "blendMode": "lighter"
+    }
+  ]
+}

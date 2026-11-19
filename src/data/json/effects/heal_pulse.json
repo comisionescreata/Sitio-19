@@ -1,0 +1,22 @@
+{
+  "id": "heal_pulse",
+  "engineMode": "builtin",
+  "category": "aura",
+  "kind": "heal",
+  "name": "Asistencia Médica 3x3",
+  "description": "Médicos e Ingenieros restauran salud periódicamente a todas las unidades aliadas en un área de 3x3.",
+  "trigger": "periodic",
+  "targetSide": "allies",
+  "areaShape": "square",
+  "radiusCells": 1,
+  "healAmount": 25,
+  "intervalSec": 3,
+  "color": "#34D399",
+  "modifiers": {
+    "healAmount": 25
+  },
+  "visual": {
+    "waveKind": "heal_ring",
+    "sound": "heal"
+  }
+}

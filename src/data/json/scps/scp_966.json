@@ -1,0 +1,23 @@
+{
+  "type": "scp_966",
+  "code": "SCP-966",
+  "name": "El Asesino del Sueño",
+  "classification": "Euclid · Supresor 3x3",
+  "hp": 190,
+  "speed": 0.24,
+  "dps": 20,
+  "scoreValue": 60,
+  "portrait": "/src/assets/images/SCP-966.png",
+  "summary": "Incapacita todas las torres en un rango de 3x3 a su alrededor: no atacan ni sus defensas funcionan.",
+  "tacticalNote": "Elimínalo a distancia con tiradores colocados fuera de su aura violeta de 3x3.",
+  "effects": [
+    "sleep_3x3"
+  ],
+  "announcement": "SCP-966 activo: desactiva torres y defensas en 3x3.",
+  "behavior": {
+    "laneSpan": 1,
+    "sleepAura": {
+      "effectId": "sleep_3x3"
+    }
+  }
+}

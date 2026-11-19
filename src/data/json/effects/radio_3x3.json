@@ -1,0 +1,24 @@
+{
+  "id": "radio_3x3",
+  "engineMode": "builtin",
+  "category": "aura",
+  "kind": "protection_aura",
+  "name": "Señal de Radio 3x3",
+  "description": "Protege en 3x3 contra SCP-035, acelera un +15% el fuego aliado y reduce a la mitad (3s) el grito de SCP-066.",
+  "trigger": "continuous_aura",
+  "targetSide": "allies",
+  "areaShape": "square",
+  "radiusCells": 1,
+  "fireRateBoost": 1.15,
+  "color": "#10B981",
+  "badgeLabel": "RADIO 3x3",
+  "modifiers": {
+    "fireRateMultiplier": 1.15,
+    "immuneToPsych": false
+  },
+  "visual": {
+    "showZone": true,
+    "zoneRgb": "16, 185, 129",
+    "zoneStroke": "rgba(16, 185, 129, 0.45)"
+  }
+}

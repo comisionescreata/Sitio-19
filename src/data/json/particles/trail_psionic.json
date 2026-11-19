@@ -1,0 +1,35 @@
+{
+  "id": "trail_psionic",
+  "name": "Estela Psiónica",
+  "description": "Destellos estelares detrás de pulsos psiónicos.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "star",
+      "colors": [
+        "#C084FC",
+        "#818CF8"
+      ],
+      "count": 2,
+      "durationSec": [
+        0.2,
+        0.3
+      ],
+      "sizePx": [
+        2.5,
+        4
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        10,
+        26
+      ],
+      "spreadDeg": 360,
+      "spinDegPerSec": [
+        -200,
+        200
+      ],
+      "blendMode": "lighter"
+    }
+  ]
+}

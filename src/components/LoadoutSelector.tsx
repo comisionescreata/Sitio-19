@@ -1,6 +1,6 @@
-import { ArrowLeft, Maximize2, Minimize2, Play, Shield, ShieldAlert, UserCheck } from 'lucide-react';
+import { ArrowLeft, Maximize2, Minimize2, Play, Shield, ShieldAlert, Target, UserCheck } from 'lucide-react';
 import { useState } from 'react';
-import { ENEMY_CATALOG, GAME_CONFIG, TOWER_CATALOG } from '../data/scpCatalog';
+import { ENEMY_CATALOG, GAME_CONFIG, SECTOR_BACKDROP_IMAGE, TOWER_CATALOG } from '../data/scpCatalog';
 import { getEffectiveTowerCost } from '../engine/simulation';
 import { LevelConfig, TowerType } from '../types/game';
 
@@ -107,8 +107,49 @@ export function LoadoutSelector({
 
       {/* Main Content */}
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-5 lg:grid-cols-12">
-        {/* Left: Incoming SCPs in this level */}
+        {/* Left: Level Cover, Objectives & Incoming SCPs */}
         <aside className="flex flex-col rounded-xl border border-slate-800 bg-[#141A22] p-4 lg:col-span-4">
+          <div className="relative mb-3 h-28 shrink-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-900">
+            <img
+              src={levelConfig.coverImage || SECTOR_BACKDROP_IMAGE}
+              alt={`Portada Nivel ${levelConfig.level}`}
+              referrerPolicy="no-referrer"
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#141A22] via-[#141A22]/30 to-transparent" />
+            <div className="absolute right-2.5 bottom-2 left-2.5 flex items-end justify-between gap-2">
+              <span className="truncate text-xs font-bold text-white">{levelConfig.title}</span>
+              <span className="font-mono-num shrink-0 text-[10px] font-semibold text-amber-300">
+                {levelConfig.gridCols}x{levelConfig.gridRows}
+              </span>
+            </div>
+          </div>
+
+          {levelConfig.objectives && levelConfig.objectives.length > 0 && (
+            <div className="mb-3 shrink-0 rounded-lg border border-slate-800 bg-[#10151C] p-2.5">
+              <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                <Target className="h-3.5 w-3.5" />
+                <span>Objetivos del Nivel</span>
+              </div>
+              <ul className="space-y-1 text-xs text-slate-300">
+                {levelConfig.objectives.map((obj) => (
+                  <li key={obj.id} className="leading-snug">
+                    <span
+                      className={`mr-1 font-mono-num text-[10px] font-bold ${
+                        obj.category === 'fail_condition' || obj.failOnViolate
+                          ? 'text-red-400'
+                          : 'text-amber-400'
+                      }`}
+                    >
+                      •
+                    </span>
+                    {obj.description}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
             <ShieldAlert className="h-4 w-4 text-red-400" />
             <h2 className="font-display text-xl font-bold text-white">

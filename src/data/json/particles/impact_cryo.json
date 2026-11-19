@@ -1,0 +1,49 @@
+{
+  "id": "impact_cryo",
+  "name": "Impacto Criogénico",
+  "description": "Fragmentos de escarcha y neblina azul al congelar un SCP.",
+  "category": "impact",
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#67E8F9",
+        "#22D3EE"
+      ],
+      "count": 1,
+      "durationSec": 0.28,
+      "sizePx": 8,
+      "ringExpandPx": 22,
+      "strokeWidth": 2
+    },
+    {
+      "shape": "shard",
+      "colors": [
+        "#A5F3FC",
+        "#67E8F9",
+        "#FFFFFF"
+      ],
+      "count": 8,
+      "durationSec": [
+        0.22,
+        0.38
+      ],
+      "sizePx": [
+        2.5,
+        4.5
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        45,
+        105
+      ],
+      "spreadDeg": 360,
+      "gravityPx": 90,
+      "spinDegPerSec": [
+        -300,
+        300
+      ],
+      "blendMode": "lighter"
+    }
+  ]
+}

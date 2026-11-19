@@ -1,0 +1,25 @@
+{
+  "type": "scp_049",
+  "code": "SCP-049",
+  "name": "El Médico de la Plaga",
+  "classification": "Euclid · Reanimador",
+  "hp": 310,
+  "speed": 0.22,
+  "dps": 30,
+  "scoreValue": 95,
+  "portrait": "/src/assets/images/SCP-049.png",
+  "summary": "Los SCP-008 obtienen +20% velocidad y otra vida. Si mata una torre, la convierte en un SCP-049-2.",
+  "tacticalNote": "Elimínalo rápido antes de que alcance tus líneas defensivas y genere SCP-049-2.",
+  "effects": [
+    "resurrection_049"
+  ],
+  "announcement": "SCP-049 presente: potencia a 008 y convierte torres caídas en SCP-049-2.",
+  "behavior": {
+    "laneSpan": 1,
+    "plagueAura": {
+      "effectId": "resurrection_049",
+      "buffTarget": "scp_008",
+      "convertType": "scp_049_2"
+    }
+  }
+}

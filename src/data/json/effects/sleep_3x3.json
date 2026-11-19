@@ -1,0 +1,23 @@
+{
+  "id": "sleep_3x3",
+  "engineMode": "builtin",
+  "category": "aura",
+  "kind": "aura_disable",
+  "name": "Supresión del Sueño 3x3",
+  "description": "SCP-966 inhabilita ataques, generación de energía, minas y defensas de toda torre en un área de 3x3.",
+  "trigger": "continuous_aura",
+  "targetSide": "towers",
+  "areaShape": "square",
+  "radiusCells": 1,
+  "color": "#8B5CF6",
+  "badgeLabel": "DORMIDA",
+  "modifiers": {
+    "disableTowerActions": true
+  },
+  "visual": {
+    "showZone": true,
+    "zoneRgb": "139, 92, 246",
+    "zoneStroke": "rgba(167, 139, 250, 0.72)",
+    "zonePulseSpeed": 4.5
+  }
+}

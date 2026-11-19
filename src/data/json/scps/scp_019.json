@@ -1,0 +1,31 @@
+{
+  "type": "scp_019",
+  "code": "SCP-019",
+  "name": "El Jarrón de Monstruos",
+  "classification": "Keter · Generador",
+  "hp": 800,
+  "speed": 0,
+  "dps": 0,
+  "scoreValue": 130,
+  "portrait": "/src/assets/images/scp-019.jpg",
+  "summary": "Jarrón de 800 de vida que aparece en el mapa y libera un rápido SCP-019-2 cada 3 segundos.",
+  "tacticalNote": "Concentra fuego perforante o Artilleros Pesados para romper el jarrón cuanto antes.",
+  "effects": [
+    "vase_019"
+  ],
+  "announcement": "Jarrón SCP-019 desplegado: genera un SCP-019-2 rápido cada 3 segundos.",
+  "behavior": {
+    "laneSpan": 1,
+    "spawnRule": {
+      "mode": "edge",
+      "colRange": [
+        7.35,
+        8.25
+      ]
+    },
+    "vaseSpawner": {
+      "spawnType": "scp_019_2",
+      "effectId": "vase_019"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "trail_cryo",
+  "name": "Estela Criogénica",
+  "description": "Cristales helados detrás de proyectiles criogénicos.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "shard",
+      "colors": [
+        "#A5F3FC",
+        "#67E8F9"
+      ],
+      "count": 2,
+      "durationSec": [
+        0.18,
+        0.28
+      ],
+      "sizePx": [
+        2,
+        3.5
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        8,
+        24
+      ],
+      "angleDeg": 180,
+      "spreadDeg": 60,
+      "spinDegPerSec": [
+        -180,
+        180
+      ],
+      "blendMode": "lighter"
+    }
+  ]
+}

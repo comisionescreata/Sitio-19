@@ -1,0 +1,10 @@
+{
+  "id": "no_tesla_gate",
+  "title": "Ahorro de Energía Tesla",
+  "description": "Completa el nivel sin activar ninguna puerta Tesla de emergencia.",
+  "category": "secondary",
+  "kind": "no_tesla_gate_used",
+  "maxCount": 0,
+  "scoreBonus": 250,
+  "color": "#38BDF8"
+}

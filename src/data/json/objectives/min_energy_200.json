@@ -1,0 +1,10 @@
+{
+  "id": "min_energy_200",
+  "title": "Reserva Energética",
+  "description": "Termina el nivel con al menos 200 de energía almacenada.",
+  "category": "bonus",
+  "kind": "min_energy_remaining",
+  "minEnergy": 200,
+  "scoreBonus": 150,
+  "color": "#FBBF24"
+}

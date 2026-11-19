@@ -1,0 +1,22 @@
+{
+  "id": "blink_173",
+  "engineMode": "builtin",
+  "category": "trigger",
+  "kind": "blink_jump",
+  "name": "Parpadeo de SCP-173",
+  "description": "Cada 2 segundos la pantalla parpadea. Cada 4 segundos SCP-173 salta 2 casillas con daño masivo (1 casilla cada 5s si SCP-106 comparte su fila).",
+  "trigger": "periodic",
+  "targetSide": "self",
+  "areaShape": "self",
+  "blinkIntervalSec": 2,
+  "blinkDurationSec": 0.16,
+  "moveIntervalSec": 4,
+  "moveCells": 2,
+  "color": "#F59E0B",
+  "modifiers": {
+    "teleportCells": 2
+  },
+  "visual": {
+    "sound": "blink"
+  }
+}

@@ -20,6 +20,8 @@ import {
   EVENTS_CATALOG,
   GAME_CONFIG,
   LEVEL_CATALOG,
+  OBJECTIVES_CATALOG,
+  PARTICLES_CATALOG,
   TOWER_CATALOG,
 } from '../data/scpCatalog';
 
@@ -393,7 +395,7 @@ export function AdminModal({
               </div>
 
               {/* JSON Catalog Summary */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-9">
                 <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-3 text-center">
                   <div className="font-mono-num text-lg font-bold text-white">
                     {LEVEL_CATALOG.length}
@@ -417,6 +419,18 @@ export function AdminModal({
                     {Object.keys(EFFECTS_CATALOG).length}
                   </div>
                   <div className="text-[11px] text-slate-400">Efectos JSON</div>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-3 text-center">
+                  <div className="font-mono-num text-lg font-bold text-white">
+                    {Object.keys(OBJECTIVES_CATALOG).length}
+                  </div>
+                  <div className="text-[11px] text-slate-400">Objetivos</div>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-3 text-center">
+                  <div className="font-mono-num text-lg font-bold text-white">
+                    {Object.keys(PARTICLES_CATALOG).length}
+                  </div>
+                  <div className="text-[11px] text-slate-400">Partículas</div>
                 </div>
                 <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-3 text-center">
                   <div className="font-mono-num text-lg font-bold text-white">

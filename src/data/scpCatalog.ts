@@ -1,35 +1,39 @@
 import { compileLevelMetadata } from '../engine/levelParser';
+import { EnemyType, LevelConfig } from '../types/game';
 import {
-  DesignCatalog,
-  EffectDefinition,
-  EnemyDefinition,
-  EnemyType,
-  GameConfig,
-  LevelConfig,
-  RawLevelConfig,
-  TowerDefinition,
-} from '../types/game';
-import { CHARACTERS_CATALOG } from './charactersLoader';
-import { DIALOGUES_CATALOG } from './dialoguesLoader';
-import { EVENTS_CATALOG } from './eventsLoader';
-import configJson from './json/config.json';
-import designsJson from './json/designs.json';
-import effectsJson from './json/effects.json';
-import levelsJson from './json/levels.json';
-import scpsJson from './json/scps.json';
-import towersJson from './json/towers.json';
+  CHARACTERS_CATALOG,
+  DESIGN_CATALOG,
+  DIALOGUES_CATALOG,
+  EFFECTS_CATALOG,
+  ENEMY_CATALOG,
+  EVENTS_CATALOG,
+  GAME_CONFIG,
+  GRID_COLS,
+  GRID_ROWS,
+  OBJECTIVES_CATALOG,
+  PARTICLES_CATALOG,
+  RAW_LEVEL_CATALOG,
+  SECTOR_BACKDROP_IMAGE,
+  TOWER_CATALOG,
+} from './catalogLoaders';
 
-export { CHARACTERS_CATALOG, DIALOGUES_CATALOG, EVENTS_CATALOG };
-export const GAME_CONFIG = configJson as GameConfig;
-export const GRID_ROWS = GAME_CONFIG.grid.rows;
-export const GRID_COLS = GAME_CONFIG.grid.cols;
-export const SECTOR_BACKDROP_IMAGE = GAME_CONFIG.app.sectorBackdropImage;
+export {
+  CHARACTERS_CATALOG,
+  DESIGN_CATALOG,
+  DIALOGUES_CATALOG,
+  EFFECTS_CATALOG,
+  ENEMY_CATALOG,
+  EVENTS_CATALOG,
+  GAME_CONFIG,
+  GRID_COLS,
+  GRID_ROWS,
+  OBJECTIVES_CATALOG,
+  PARTICLES_CATALOG,
+  RAW_LEVEL_CATALOG,
+  SECTOR_BACKDROP_IMAGE,
+  TOWER_CATALOG,
+};
 
-export const DESIGN_CATALOG = designsJson as DesignCatalog;
-export const EFFECTS_CATALOG = effectsJson as Record<string, EffectDefinition>;
-export const TOWER_CATALOG = towersJson as TowerDefinition[];
-export const ENEMY_CATALOG = scpsJson as EnemyDefinition[];
-export const RAW_LEVEL_CATALOG = levelsJson as RawLevelConfig[];
 export const LEVEL_CATALOG: LevelConfig[] = RAW_LEVEL_CATALOG.map(compileLevelMetadata);
 
 const seenScps = new Set<EnemyType>();

@@ -1,0 +1,19 @@
+{
+  "type": "scp_008",
+  "code": "SCP-008",
+  "name": "Plaga Zombi",
+  "classification": "Euclid",
+  "hp": 200,
+  "speed": 0.4,
+  "dps": 20,
+  "scoreValue": 25,
+  "portrait": "src/assets/images/scp-008.png",
+  "summary": "Zombi básico, proviene del scp 008, un patogeno infeccioso que convierte a sus huespedes en muertos vivientes a traves del paro cardiaco",
+  "tacticalNote": "Como es basico, es facil, no necesita estrategia técnica",
+  "effects": [
+    "resurrection_049"
+  ],
+  "behavior": {
+    "laneSpan": 1
+  }
+}

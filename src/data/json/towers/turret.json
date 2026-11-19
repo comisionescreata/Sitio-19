@@ -1,0 +1,16 @@
+{
+  "type": "turret",
+  "name": "Torreta Automática",
+  "category": "estructura",
+  "cost": 250,
+  "cooldown": 9.5,
+  "maxHp": 450,
+  "unlockLevel": 16,
+  "roleLabel": "Pesada · 50 daño",
+  "description": "Estructura blindada de fuego rápido perforante ideal contra grandes hordas.",
+  "fireRate": 0.95,
+  "damage": 50,
+  "burstCount": 1,
+  "projectileKind": "turret",
+  "canBeHypnotized": true
+}

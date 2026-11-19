@@ -1,0 +1,103 @@
+{
+  "id": "explosion_grenade",
+  "name": "Explosión de Granada (3x3)",
+  "description": "Onda expansiva, fuego brillante, chispas y nube de humo.",
+  "category": "explosion",
+  "screenShake": 4,
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#F97316",
+        "#FDE047"
+      ],
+      "count": 1,
+      "durationSec": 0.4,
+      "sizePx": 16,
+      "ringExpandPx": 68,
+      "strokeWidth": 4.5,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "circle",
+      "colors": [
+        "#FEF08A",
+        "#F97316",
+        "#EF4444"
+      ],
+      "colorEnd": "#7F1D1D",
+      "count": 16,
+      "durationSec": [
+        0.26,
+        0.44
+      ],
+      "sizePx": [
+        4.5,
+        9
+      ],
+      "sizeEndScale": 0.25,
+      "speedPx": [
+        65,
+        175
+      ],
+      "spreadDeg": 360,
+      "drag": 2.8,
+      "blendMode": "lighter",
+      "glowColor": "#F97316",
+      "glowBlur": 10
+    },
+    {
+      "shape": "spark",
+      "colors": [
+        "#FEF08A",
+        "#FB923C",
+        "#FFFFFF"
+      ],
+      "count": 14,
+      "durationSec": [
+        0.28,
+        0.5
+      ],
+      "sizePx": [
+        2.5,
+        4.2
+      ],
+      "sizeEndScale": 0.1,
+      "speedPx": [
+        95,
+        220
+      ],
+      "spreadDeg": 360,
+      "gravityPx": 160,
+      "drag": 2.2,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(71, 85, 105, 0.6)",
+        "rgba(51, 65, 85, 0.5)"
+      ],
+      "count": 8,
+      "durationSec": [
+        0.45,
+        0.75
+      ],
+      "sizePx": [
+        11,
+        18
+      ],
+      "sizeEndScale": 2.1,
+      "alphaStart": 0.55,
+      "alphaEnd": 0,
+      "speedPx": [
+        25,
+        65
+      ],
+      "spreadDeg": 360,
+      "gravityPx": -25,
+      "drag": 2.4,
+      "delaySec": 0.05
+    }
+  ]
+}

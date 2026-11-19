@@ -1,0 +1,16 @@
+{
+  "type": "mtf",
+  "name": "Operador MTF",
+  "category": "personal",
+  "cost": 200,
+  "cooldown": 7.5,
+  "maxHp": 230,
+  "unlockLevel": 10,
+  "roleLabel": "Ráfaga x2 · 28",
+  "description": "Destacamento Epsilon-11. Dispara ráfagas dobles de alto calibre en su carril.",
+  "fireRate": 1.25,
+  "damage": 28,
+  "burstCount": 2,
+  "projectileKind": "mtf",
+  "canBeHypnotized": true
+}

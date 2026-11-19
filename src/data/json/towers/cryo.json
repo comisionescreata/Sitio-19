@@ -1,0 +1,18 @@
+{
+  "type": "cryo",
+  "name": "Agente Criogénico",
+  "category": "personal",
+  "cost": 150,
+  "cooldown": 6,
+  "maxHp": 190,
+  "unlockLevel": 5,
+  "roleLabel": "Frena 45% · 20",
+  "description": "Ralentiza un 45% a los enemigos y acorta el salto de SCP-173 a 1 casilla.",
+  "fireRate": 1.35,
+  "damage": 20,
+  "burstCount": 1,
+  "slowFactor": 0.45,
+  "slowDuration": 4,
+  "projectileKind": "cryo",
+  "canBeHypnotized": true
+}

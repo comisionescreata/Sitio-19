@@ -1,0 +1,18 @@
+{
+  "type": "scp_019_2",
+  "code": "SCP-019-2",
+  "name": "Engendro del Jarrón",
+  "classification": "Keter · Enjambre Rápido",
+  "hp": 75,
+  "speed": 0.68,
+  "dps": 18,
+  "scoreValue": 20,
+  "portrait": "/src/assets/images/scp-019-2.jpg",
+  "summary": "Emerge cada 3 segundos de SCP-019. Tiene menos salud que un SCP-008, pero corre mucho más rápido.",
+  "tacticalNote": "Granaderos, Rejillas Láser y Bobinas Tesla limpian rápido estos enjambres.",
+  "effects": [],
+  "isSummon": true,
+  "behavior": {
+    "laneSpan": 1
+  }
+}

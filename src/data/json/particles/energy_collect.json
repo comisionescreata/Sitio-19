@@ -1,0 +1,38 @@
+{
+  "id": "energy_collect",
+  "name": "Recolección de Energía",
+  "description": "Estrellas doradas al recoger orbes de energía.",
+  "category": "custom",
+  "emitters": [
+    {
+      "shape": "star",
+      "colors": [
+        "#FBBF24",
+        "#FEF08A",
+        "#FFFFFF"
+      ],
+      "count": 8,
+      "durationSec": [
+        0.28,
+        0.48
+      ],
+      "sizePx": [
+        3,
+        5
+      ],
+      "sizeEndScale": 0.15,
+      "speedPx": [
+        40,
+        95
+      ],
+      "spreadDeg": 360,
+      "spinDegPerSec": [
+        -240,
+        240
+      ],
+      "blendMode": "lighter",
+      "glowColor": "#FBBF24",
+      "glowBlur": 6
+    }
+  ]
+}

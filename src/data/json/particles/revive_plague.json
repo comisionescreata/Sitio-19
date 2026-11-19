@@ -1,0 +1,46 @@
+{
+  "id": "revive_plague",
+  "name": "Reanimación Anómala",
+  "description": "Esporas verdes tóxicas y anillo de resurrección.",
+  "category": "aura",
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#22C55E",
+        "#4ADE80"
+      ],
+      "count": 1,
+      "durationSec": 0.55,
+      "sizePx": 10,
+      "ringExpandPx": 40,
+      "strokeWidth": 3
+    },
+    {
+      "shape": "circle",
+      "colors": [
+        "#22C55E",
+        "#84CC16",
+        "#BBF7D0"
+      ],
+      "count": 12,
+      "durationSec": [
+        0.45,
+        0.75
+      ],
+      "sizePx": [
+        2.5,
+        5
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        30,
+        75
+      ],
+      "angleDeg": -90,
+      "spreadDeg": 160,
+      "gravityPx": -25,
+      "blendMode": "lighter"
+    }
+  ]
+}

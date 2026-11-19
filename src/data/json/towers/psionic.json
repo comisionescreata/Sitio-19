@@ -1,0 +1,18 @@
+{
+  "type": "psionic",
+  "name": "Especialista Psiónico",
+  "category": "personal",
+  "cost": 175,
+  "cooldown": 8,
+  "maxHp": 210,
+  "unlockLevel": 38,
+  "roleLabel": "Pulso · 55 + Frena",
+  "description": "Personal de contención anómala. Emite pulsos de 55 de daño que frenan un 35% incluso a SCP-106 y SCP-066.",
+  "fireRate": 1.6,
+  "damage": 55,
+  "burstCount": 1,
+  "slowFactor": 0.35,
+  "slowDuration": 3,
+  "projectileKind": "psionic",
+  "canBeHypnotized": true
+}

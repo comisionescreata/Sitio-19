@@ -1,0 +1,35 @@
+{
+  "id": "attack_turret",
+  "name": "Disparo de Torreta Blindada",
+  "description": "Destello perforante naranja-blanco de alta cadencia.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "spark",
+      "colors": [
+        "#F97316",
+        "#FDBA74",
+        "#FFFFFF"
+      ],
+      "count": 7,
+      "durationSec": [
+        0.12,
+        0.22
+      ],
+      "sizePx": [
+        2.2,
+        3.8
+      ],
+      "sizeEndScale": 0.1,
+      "speedPx": [
+        110,
+        210
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 34,
+      "drag": 4,
+      "offsetX": 24,
+      "blendMode": "lighter"
+    }
+  ]
+}

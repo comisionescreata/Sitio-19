@@ -1,0 +1,17 @@
+{
+  "type": "shotgunner",
+  "name": "Escopetero Táctico",
+  "category": "personal",
+  "cost": 125,
+  "cooldown": 6,
+  "maxHp": 220,
+  "unlockLevel": 3,
+  "roleLabel": "Corto · 60 daño",
+  "description": "Dispara perdigones pesados de corto alcance (3.8 casillas) con alto impacto.",
+  "fireRate": 1.5,
+  "damage": 60,
+  "burstCount": 1,
+  "maxRangeCols": 3.8,
+  "projectileKind": "shotgun",
+  "canBeHypnotized": true
+}

@@ -1,0 +1,23 @@
+{
+  "type": "scp_058",
+  "code": "SCP-058",
+  "name": "Corazón de las Tinieblas",
+  "classification": "Keter · Veloz e Inmune",
+  "hp": 70,
+  "speed": 1.35,
+  "dps": 32,
+  "scoreValue": 125,
+  "portrait": "/src/assets/images/Scp_058.webp",
+  "summary": "Tiene 70 de vida pero se mueve muy rápido por el carril y no le afecta ningún efecto de ralentización, hielo o fuego.",
+  "tacticalNote": "El Agente Criogénico y el Fuego no lo frenan; detén su carrera con daño directo, Escopeteros o Barricadas.",
+  "effects": [
+    "immunity_058"
+  ],
+  "announcement": "SCP-058 irrumpe a toda velocidad: inmune a congelación, fuego y efectos.",
+  "behavior": {
+    "laneSpan": 1,
+    "immunities": [
+      "all_effects"
+    ]
+  }
+}

@@ -1,23 +1,26 @@
-import { EVENTS_CATALOG } from '../data/eventsLoader';
-import configJson from '../data/json/config.json';
-import scpsJson from '../data/json/scps.json';
-import towersJson from '../data/json/towers.json';
+import {
+  ENEMY_CATALOG,
+  EVENTS_CATALOG,
+  GAME_CONFIG,
+  OBJECTIVES_CATALOG,
+  TOWER_CATALOG,
+} from '../data/catalogLoaders';
 import {
   EnemyDefinition,
   EnemyType,
-  GameConfig,
   LevelConfig,
   LevelEvent,
   LevelEventDefinition,
+  LevelObjectiveSpec,
+  ObjectiveDefinition,
   RawLevelConfig,
   RawLevelEvent,
   ResolvedSpawnTarget,
   TowerDefinition,
 } from '../types/game';
 
-const GAME_CONFIG = configJson as GameConfig;
-const ENEMIES = scpsJson as EnemyDefinition[];
-const TOWERS = towersJson as TowerDefinition[];
+const ENEMIES: EnemyDefinition[] = ENEMY_CATALOG;
+const TOWERS: TowerDefinition[] = TOWER_CATALOG;
 
 function clampRow(r: number, gridRows: number): number {
   return Math.max(0, Math.min(gridRows - 1, Math.round(r)));
@@ -166,9 +169,37 @@ function expandEventTimestamps(events: RawLevelEvent[]): Array<{ absTime: number
  * - Merges `obstacles` and `tombstones` shorthand
  * - Preserves dialogues (`introDialogueId`, `victoryDialogueId`, `defeatDialogueId`, `inlineDialogues`)
  */
+function resolveLevelObjectives(
+  specs: LevelObjectiveSpec[] | undefined
+): ObjectiveDefinition[] | undefined {
+  if (!specs || specs.length === 0) return undefined;
+  const resolved: ObjectiveDefinition[] = [];
+  for (let i = 0; i < specs.length; i++) {
+    const spec = specs[i];
+    if (typeof spec === 'string') {
+      const preset = OBJECTIVES_CATALOG[spec];
+      if (preset) resolved.push(preset);
+      continue;
+    }
+    const base = spec.objectiveId ? OBJECTIVES_CATALOG[spec.objectiveId] : undefined;
+    const kind = spec.kind ?? base?.kind;
+    if (!kind) continue;
+    const id = spec.id ?? spec.objectiveId ?? base?.id ?? `obj_${i + 1}`;
+    resolved.push({
+      ...(base ?? {}),
+      ...spec,
+      id,
+      kind,
+      description: spec.description ?? base?.description ?? spec.title ?? base?.title ?? id,
+    });
+  }
+  return resolved.length > 0 ? resolved : undefined;
+}
+
 export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
   const flagTimes: number[] = [];
   const enemySet = new Set<EnemyType>(raw.enemiesPresent ?? []);
+  const levelNum = raw.level ?? 1;
 
   const rawRows = raw.grid?.rows ?? raw.rows ?? GAME_CONFIG.grid.rows;
   const rawCols = raw.grid?.cols ?? raw.cols ?? GAME_CONFIG.grid.cols;
@@ -180,7 +211,7 @@ export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
     ...(raw.tombstones ?? []).map((t) => ({ kind: 'tombstone' as const, ...t })),
   ];
 
-  const expanded = expandEventTimestamps(raw.events);
+  const expanded = expandEventTimestamps(raw.events ?? []);
   let maxTime = 0;
 
   if (!raw.enemiesPresent) {
@@ -214,7 +245,9 @@ export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
   }
 
   const surviveTarget =
-    raw.victoryCondition?.mode === 'survive_time' && raw.victoryCondition.targetSeconds
+    (raw.victoryCondition?.mode === 'survive_time' ||
+      raw.victoryCondition?.mode === 'survive_and_kill') &&
+    raw.victoryCondition.targetSeconds
       ? raw.victoryCondition.targetSeconds
       : 0;
   const durationSeconds =
@@ -229,7 +262,7 @@ export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
 
   const matchedTower = raw.unlockTower
     ? TOWERS.find((t) => t.type === raw.unlockTower)
-    : TOWERS.find((t) => t.unlockLevel === raw.level);
+    : TOWERS.find((t) => t.unlockLevel === levelNum);
 
   const unlockTower = matchedTower?.type;
   const rewardLabel =
@@ -239,10 +272,14 @@ export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
       ? `Desbloquea: ${matchedTower.name}`
       : null;
 
+  const coverImage = raw.coverImage ?? raw.portrait ?? raw.bannerImage;
+  const objectives = resolveLevelObjectives(raw.objectives);
+
   return {
-    level: raw.level,
+    level: levelNum,
     title: raw.title,
     description: raw.description,
+    coverImage,
     startingEnergy: raw.startingEnergy,
     maxDeckSlots: raw.maxDeckSlots,
     gridRows,
@@ -262,6 +299,7 @@ export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
     startingDoors079: raw.startingDoors079,
     globalEffects: raw.globalEffects,
     levelEvents: raw.levelEvents,
+    objectives,
     introDialogueId: raw.introDialogueId,
     victoryDialogueId: raw.victoryDialogueId,
     defeatDialogueId: raw.defeatDialogueId,
@@ -272,7 +310,7 @@ export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
     flagMarkers,
     rewardLabel,
     unlockTower,
-    rawEvents: raw.events,
+    rawEvents: raw.events ?? [],
   };
 }
 

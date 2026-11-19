@@ -1,0 +1,39 @@
+{
+  "id": "attack_pyro",
+  "name": "Chorro Incendiario",
+  "description": "Llamarada de chispas térmicas y brasas ascendentes.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "circle",
+      "colors": [
+        "#F97316",
+        "#EF4444",
+        "#FDE047"
+      ],
+      "colorEnd": "#7C2D12",
+      "count": 10,
+      "durationSec": [
+        0.18,
+        0.34
+      ],
+      "sizePx": [
+        3,
+        5.5
+      ],
+      "sizeEndScale": 0.25,
+      "speedPx": [
+        75,
+        160
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 44,
+      "gravityPx": -45,
+      "drag": 2.6,
+      "offsetX": 24,
+      "blendMode": "lighter",
+      "glowColor": "#F97316",
+      "glowBlur": 8
+    }
+  ]
+}

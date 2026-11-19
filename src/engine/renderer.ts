@@ -8,6 +8,7 @@ import {
   TOWER_CATALOG,
 } from '../data/scpCatalog';
 import { getDeclarativeEffects } from './effectRunner';
+import { ParticleSystem, renderParticleSystem } from './particleSystem';
 import {
   BlockedCellConfig,
   BoardDesignConfig,
@@ -67,23 +68,32 @@ const FALLBACK_PROJECTILE_DESIGN: ProjectileDesignConfig = {
 };
 
 function getTowerDesign(type: string): TowerDesignConfig {
-  return (
+  const catalogBase =
     DESIGN_CATALOG.towers[type] ?? {
       ...FALLBACK_TOWER_DESIGN,
       ...(DESIGN_CATALOG.defaultTower ?? {}),
-    }
-  );
+    };
+  const towerInline = TOWER_CATALOG.find((t) => t.type === type)?.inlineDesign;
+  if (!towerInline) return catalogBase;
+  return {
+    ...catalogBase,
+    ...towerInline,
+  };
 }
 
 function getEnemyDesign(type: string): EnemyDesignConfig {
-  if (DESIGN_CATALOG.enemies[type]) {
-    return DESIGN_CATALOG.enemies[type];
-  }
   const autoLabel = type.replace(/^scp_/i, '').toUpperCase().slice(0, 6) || 'SCP';
+  const catalogBase =
+    DESIGN_CATALOG.enemies[type] ?? {
+      ...FALLBACK_ENEMY_DESIGN,
+      ...(DESIGN_CATALOG.defaultEnemy ?? {}),
+      codeLabel: DESIGN_CATALOG.defaultEnemy?.codeLabel || autoLabel,
+    };
+  const enemyInline = ENEMY_CATALOG.find((e) => e.type === type)?.inlineDesign;
+  if (!enemyInline) return catalogBase;
   return {
-    ...FALLBACK_ENEMY_DESIGN,
-    ...(DESIGN_CATALOG.defaultEnemy ?? {}),
-    codeLabel: DESIGN_CATALOG.defaultEnemy?.codeLabel || autoLabel,
+    ...catalogBase,
+    ...enemyInline,
   };
 }
 
@@ -96,6 +106,13 @@ function getProjectileDesign(kind: string): ProjectileDesignConfig {
   );
 }
 
+export interface BoundaryLineOverlay {
+  col: number;
+  color?: string;
+  label?: string;
+  rows?: number[];
+}
+
 export interface RenderState {
   gridRows?: number;
   gridCols?: number;
@@ -104,6 +121,7 @@ export interface RenderState {
   tileModifiers?: TileModifierConfig[];
   tileOverrides?: TileOverrideConfig[];
   obstacles?: BoardObstacle[];
+  boundaryLines?: BoundaryLineOverlay[];
   environment?: LevelEnvironmentConfig;
   shakeIntensity?: number;
   shakeTimer?: number;
@@ -118,6 +136,7 @@ export interface RenderState {
   projectiles: Projectile[];
   energyDrops: EnergyDrop[];
   effects: VisualEffect[];
+  particleSystem?: ParticleSystem;
   gates: EmergencyGate[];
   hoverCell: { row: number; col: number } | null;
   selectedTool: TowerType | 'remove' | null;
@@ -459,9 +478,30 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
 
   ctx.fillStyle = board.gateBg;
   ctx.fillRect(0, padTop, gateWidth, boardH);
+  if (board.gateBorderColor && (board.gateBorderWidth ?? 0) > 0) {
+    ctx.strokeStyle = board.gateBorderColor;
+    ctx.lineWidth = board.gateBorderWidth ?? 2;
+    ctx.strokeRect(0, padTop, gateWidth, boardH);
+  }
+  if (board.gateLabel) {
+    ctx.save();
+    ctx.fillStyle = board.gateLabelColor ?? '#94A3B8';
+    ctx.font = 'bold 8px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(board.gateLabel, gateWidth / 2, padTop - 6);
+    ctx.restore();
+  }
 
   ctx.fillStyle = board.breachBg;
   ctx.fillRect(gateWidth + boardW, padTop, breachMargin, boardH);
+  if (board.breachLabel) {
+    ctx.save();
+    ctx.fillStyle = board.breachLabelColor ?? '#F59E0B';
+    ctx.font = 'bold 8px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(board.breachLabel, gateWidth + boardW + breachMargin / 2, padTop - 6);
+    ctx.restore();
+  }
 
   const baseArrowCols = board.arrowColumns ?? [0, 4, 8];
   const arrowCols =
@@ -470,44 +510,115 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
       : new Set(baseArrowCols.filter((c) => c >= 0 && c < gridCols));
   const tileSpriteEven = getCachedImage(board.tileSpriteEven);
   const tileSpriteOdd = getCachedImage(board.tileSpriteOdd);
+  const tileGap = Math.max(0, board.tileGap ?? 0);
+  const tileCornerR = Math.max(0, board.tileCornerRadius ?? 0);
+  const arrowScale = board.arrowScale ?? 1;
+  const arrowStyle = board.arrowStyle ?? 'chevron';
 
   for (let r = 0; r < gridRows; r++) {
     for (let c = 0; c < gridCols; c++) {
       const { x, y } = cellToPx(r, c);
+      const tx = x + tileGap / 2;
+      const ty = y + tileGap / 2;
+      const tw = cellSize - tileGap;
+      const th = cellSize - tileGap;
       const isEven = (r + c) % 2 === 0;
       const tileSprite = isEven ? tileSpriteEven : tileSpriteOdd;
       if (tileSprite) {
-        ctx.drawImage(tileSprite, x, y, cellSize, cellSize);
+        ctx.drawImage(tileSprite, tx, ty, tw, th);
       } else {
         ctx.fillStyle = isEven ? board.tileEven : board.tileOdd;
-        ctx.fillRect(x, y, cellSize, cellSize);
+        if (tileCornerR > 0) {
+          roundRect(ctx, tx, ty, tw, th, tileCornerR);
+          ctx.fill();
+        } else {
+          ctx.fillRect(tx, ty, tw, th);
+        }
+      }
+
+      if (board.tileHighlightColor) {
+        ctx.fillStyle = board.tileHighlightColor;
+        ctx.fillRect(tx + 1, ty + 1, tw - 2, 2);
       }
 
       ctx.strokeStyle = board.tileStroke;
       ctx.lineWidth = board.tileStrokeWidth ?? 1;
-      ctx.strokeRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+      if (tileCornerR > 0) {
+        roundRect(ctx, tx + 0.5, ty + 0.5, tw - 1, th - 1, tileCornerR);
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(tx + 0.5, ty + 0.5, tw - 1, th - 1);
+      }
 
       if (arrowCols.has(c)) {
+        const acx = x + cellSize / 2;
+        const acy = y + cellSize / 2;
+        ctx.save();
+        ctx.translate(acx, acy);
+        if (arrowScale !== 1) ctx.scale(arrowScale, arrowScale);
         ctx.fillStyle = board.arrowFill;
-        ctx.beginPath();
-        ctx.moveTo(x + cellSize * 0.62, y + cellSize * 0.42);
-        ctx.lineTo(x + cellSize * 0.48, y + cellSize * 0.5);
-        ctx.lineTo(x + cellSize * 0.62, y + cellSize * 0.58);
-        ctx.lineTo(x + cellSize * 0.56, y + cellSize * 0.58);
-        ctx.lineTo(x + cellSize * 0.42, y + cellSize * 0.5);
-        ctx.lineTo(x + cellSize * 0.56, y + cellSize * 0.42);
-        ctx.closePath();
-        ctx.fill();
+        ctx.strokeStyle = board.arrowFill;
+        if (arrowStyle === 'triangle') {
+          ctx.beginPath();
+          ctx.moveTo(cellSize * 0.1, -cellSize * 0.08);
+          ctx.lineTo(-cellSize * 0.1, 0);
+          ctx.lineTo(cellSize * 0.1, cellSize * 0.08);
+          ctx.closePath();
+          ctx.fill();
+        } else if (arrowStyle === 'line') {
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(cellSize * 0.14, 0);
+          ctx.lineTo(-cellSize * 0.12, 0);
+          ctx.moveTo(-cellSize * 0.04, -cellSize * 0.07);
+          ctx.lineTo(-cellSize * 0.12, 0);
+          ctx.lineTo(-cellSize * 0.04, cellSize * 0.07);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(cellSize * 0.12, -cellSize * 0.08);
+          ctx.lineTo(-cellSize * 0.02, 0);
+          ctx.lineTo(cellSize * 0.12, cellSize * 0.08);
+          ctx.lineTo(cellSize * 0.06, cellSize * 0.08);
+          ctx.lineTo(-cellSize * 0.08, 0);
+          ctx.lineTo(cellSize * 0.06, -cellSize * 0.08);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
       }
     }
 
     const laneY = padTop + r * cellSize;
+    if (board.laneAlternateTint && r % 2 === 1) {
+      ctx.fillStyle = board.laneAlternateTint;
+      ctx.fillRect(gateWidth, laneY, boardW, cellSize);
+    }
+
     ctx.strokeStyle = board.laneStroke;
     ctx.lineWidth = board.laneStrokeWidth ?? 2;
     ctx.beginPath();
     ctx.moveTo(gateWidth, laneY);
     ctx.lineTo(gateWidth + boardW, laneY);
     ctx.stroke();
+
+    if (board.showLaneNumbers) {
+      ctx.save();
+      ctx.fillStyle = board.laneNumberColor ?? 'rgba(148, 163, 184, 0.45)';
+      ctx.font = 'bold 9px "JetBrains Mono", monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`${board.laneLabelPrefix ?? 'F'}${r + 1}`, gateWidth + 4, laneY + 4);
+      ctx.restore();
+    }
+  }
+
+  if (board.outerBorderColor && (board.outerBorderWidth ?? 0) > 0) {
+    ctx.save();
+    ctx.strokeStyle = board.outerBorderColor;
+    ctx.lineWidth = board.outerBorderWidth ?? 2;
+    ctx.strokeRect(gateWidth, padTop, boardW, boardH);
+    ctx.restore();
   }
 
   const breachX = gateWidth + boardW;
@@ -538,6 +649,11 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
   // Scripted Lane / Cell Highlights
   if (state.laneHighlights && state.laneHighlights.length > 0) {
     drawLaneHighlights(ctx, state.laneHighlights, gridRows, gridCols, state.time);
+  }
+
+  // Objective Boundary Lines (e.g. "No dejar cruzar la columna 3")
+  if (state.boundaryLines && state.boundaryLines.length > 0) {
+    drawBoundaryLines(ctx, state.boundaryLines, board, gridRows, gridCols, state.time);
   }
 
   // Radio Anti-Hypnosis & Anti-066 Aura
@@ -730,6 +846,10 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
     drawEffect(ctx, fx);
   }
 
+  if (state.particleSystem) {
+    renderParticleSystem(ctx, state.particleSystem, BOARD_LAYOUT, getCachedImage);
+  }
+
   for (const drop of state.energyDrops) {
     drawEnergyDrop(ctx, drop, state.time);
   }
@@ -856,6 +976,78 @@ function drawTileOverrides(
   }
 }
 
+const TILE_MODIFIER_ALIAS_MAP: Partial<Record<TileModifierKind, string>> = {
+  heal: 'heal_tower',
+  boost_fire: 'boost_fire_rate',
+  energy: 'energy_pad',
+  shield: 'shield_pad',
+  chill_projectiles: 'cryo_projectiles',
+};
+
+function drawBoundaryLines(
+  ctx: CanvasRenderingContext2D,
+  lines: BoundaryLineOverlay[],
+  board: BoardDesignConfig,
+  gridRows: number,
+  gridCols: number,
+  time: number
+) {
+  const { cellSize, gateWidth, padTop } = BOARD_LAYOUT;
+  for (const bl of lines) {
+    if (bl.col < 0 || bl.col >= gridCols) continue;
+    // Matches `enemy.col <= limitCol` threshold aligned with right edge of limit column
+    const lineX = gateWidth + (bl.col + 0.5) * cellSize;
+    const strokeCol = bl.color ?? board.boundaryLineColor ?? '#EF4444';
+    const dash = board.boundaryLineDash ?? [6, 5];
+    const lw = board.boundaryLineWidth ?? 2.5;
+    const pulse = 0.72 + 0.28 * Math.sin(time * 4.5);
+
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.strokeStyle = strokeCol;
+    ctx.lineWidth = lw;
+    ctx.setLineDash(dash);
+
+    if (bl.rows && bl.rows.length > 0) {
+      for (const r of bl.rows) {
+        if (r < 0 || r >= gridRows) continue;
+        const y0 = padTop + r * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(lineX, y0);
+        ctx.lineTo(lineX, y0 + cellSize);
+        ctx.stroke();
+      }
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(lineX, padTop);
+      ctx.lineTo(lineX, padTop + gridRows * cellSize);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    const labelText = bl.label ?? `LÍMITE COL ${bl.col}`;
+    ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+    const textW = ctx.measureText(labelText).width;
+    const boxW = textW + 10;
+    const boxH = 15;
+    const boxX = Math.max(gateWidth + 2, lineX - boxW / 2);
+    const boxY = Math.max(2, padTop - boxH - 2);
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = board.boundaryLabelBg ?? 'rgba(15, 23, 42, 0.92)';
+    roundRect(ctx, boxX, boxY, boxW, boxH, 3);
+    ctx.fill();
+    ctx.strokeStyle = strokeCol;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.fillStyle = board.boundaryLabelText ?? '#FCA5A5';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(labelText, boxX + boxW / 2, boxY + boxH / 2 + 0.5);
+    ctx.restore();
+  }
+}
+
 function drawTileModifiers(
   ctx: CanvasRenderingContext2D,
   modifiers: TileModifierConfig[],
@@ -864,9 +1056,13 @@ function drawTileModifiers(
   time: number
 ) {
   const { cellSize } = BOARD_LAYOUT;
-  const pulse = 0.14 + 0.05 * Math.sin(time * 3.5);
+  const designMods = DESIGN_CATALOG.tileModifiers;
   for (const mod of modifiers) {
     const st = TILE_MODIFIER_STYLE[mod.kind] ?? TILE_MODIFIER_STYLE.heal;
+    const aliasKey = TILE_MODIFIER_ALIAS_MAP[mod.kind];
+    const dm = designMods?.[mod.kind] ?? (aliasKey ? designMods?.[aliasKey] : undefined);
+    const pulseSpeed = dm?.pulseSpeed ?? 3.5;
+    const pulse = 0.14 + 0.05 * Math.sin(time * pulseSpeed);
     const rows =
       mod.rows && mod.rows.length > 0
         ? mod.rows
@@ -879,7 +1075,7 @@ function drawTileModifiers(
         : mod.col !== undefined
         ? [mod.col]
         : Array.from({ length: gridCols }, (_, c) => c);
-    const spriteImg = getCachedImage(mod.sprite);
+    const spriteImg = getCachedImage(mod.sprite ?? dm?.sprite);
     const fadeFactor =
       mod.remaining !== undefined && mod.remaining < 1.2
         ? Math.max(0.25, mod.remaining / 1.2)
@@ -891,21 +1087,22 @@ function drawTileModifiers(
         if (c < 0 || c >= gridCols) continue;
         const { x, y } = cellToPx(r, c);
         ctx.save();
-        ctx.globalAlpha *= (mod.opacity ?? 1) * fadeFactor;
-        ctx.fillStyle = mod.color ? mod.color : `rgba(${st.rgb}, ${pulse})`;
+        ctx.globalAlpha *= (mod.opacity ?? dm?.opacity ?? 1) * fadeFactor;
+        ctx.fillStyle = mod.color ?? dm?.color ?? `rgba(${st.rgb}, ${pulse})`;
         ctx.fillRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
         if (spriteImg) {
           ctx.drawImage(spriteImg, x + 4, y + 4, cellSize - 8, cellSize - 8);
         }
-        ctx.strokeStyle = mod.strokeColor ?? st.stroke;
+        const strokeCol = mod.strokeColor ?? dm?.borderColor ?? st.stroke;
+        ctx.strokeStyle = strokeCol;
         ctx.lineWidth = 1.25;
         ctx.setLineDash([4, 3]);
         ctx.strokeRect(x + 3, y + 3, cellSize - 6, cellSize - 6);
         ctx.setLineDash([]);
 
-        const lbl = mod.label ?? st.shortLabel;
+        const lbl = mod.label ?? dm?.label ?? st.shortLabel;
         if (lbl) {
-          ctx.fillStyle = mod.strokeColor ?? st.stroke;
+          ctx.fillStyle = strokeCol;
           ctx.font = 'bold 8px "JetBrains Mono", monospace';
           ctx.textAlign = 'right';
           ctx.fillText(lbl, x + cellSize - 5, y + cellSize - 5);
@@ -921,10 +1118,13 @@ function drawObstacle(ctx: CanvasRenderingContext2D, ob: BoardObstacle, time: nu
   const { x, y } = cellToPx(ob.row, ob.col);
   const cx = x + cellSize / 2;
   const cy = y + cellSize / 2;
+  const obDesign = DESIGN_CATALOG.obstacles?.[ob.kind];
   const hpRatio = Math.max(0, Math.min(1, ob.hp / Math.max(1, ob.maxHp)));
   const isDamaged = hpRatio < 0.65;
   const isCracked = hpRatio <= 0.5;
-  const spriteSrc = isCracked && ob.crackedSprite ? ob.crackedSprite : ob.sprite;
+  const spriteSrc = isCracked
+    ? ob.crackedSprite ?? obDesign?.crackedSprite ?? ob.sprite ?? obDesign?.sprite
+    : ob.sprite ?? obDesign?.sprite;
   const spriteImg = getCachedImage(spriteSrc);
   const wRatio = ob.widthRatio ?? 0.78;
   const hRatio = ob.heightRatio ?? 0.82;
@@ -949,9 +1149,10 @@ function drawObstacle(ctx: CanvasRenderingContext2D, ob: BoardObstacle, time: nu
     drawSpriteAt(ctx, spriteImg, cx, cy, cellSize * wRatio, cellSize * hRatio);
   } else if (ob.kind === 'tombstone') {
     const bodyFill = isCracked
-      ? ob.crackedColor ?? '#334155'
-      : ob.color ?? '#475569';
-    const strokeCol = ob.strokeColor ?? '#0F172A';
+      ? ob.crackedColor ?? obDesign?.crackedColor ?? '#334155'
+      : ob.color ?? obDesign?.color ?? '#475569';
+    const strokeCol = ob.strokeColor ?? obDesign?.strokeColor ?? '#0F172A';
+    const crackCol = obDesign?.crackColor ?? '#0F172A';
 
     // Base plinth
     ctx.fillStyle = '#1E293B';
@@ -985,7 +1186,7 @@ function drawObstacle(ctx: CanvasRenderingContext2D, ob: BoardObstacle, time: nu
     ctx.stroke();
 
     if (isDamaged) {
-      ctx.strokeStyle = '#0F172A';
+      ctx.strokeStyle = crackCol;
       ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.moveTo(cx - 10, cy - 12);
@@ -999,10 +1200,10 @@ function drawObstacle(ctx: CanvasRenderingContext2D, ob: BoardObstacle, time: nu
       ctx.stroke();
     }
   } else if (ob.kind === 'barricade') {
-    ctx.fillStyle = ob.color ?? '#334155';
-    roundRect(ctx, cx - 22, cy - 18, 44, 38, 5);
+    ctx.fillStyle = ob.color ?? obDesign?.color ?? '#334155';
+    roundRect(ctx, cx - 22, cy - 18, 44, 38, obDesign?.cornerRadius ?? 5);
     ctx.fill();
-    ctx.strokeStyle = ob.strokeColor ?? '#F59E0B';
+    ctx.strokeStyle = ob.strokeColor ?? obDesign?.strokeColor ?? '#F59E0B';
     ctx.lineWidth = 2.2;
     ctx.stroke();
 
@@ -1019,8 +1220,8 @@ function drawObstacle(ctx: CanvasRenderingContext2D, ob: BoardObstacle, time: nu
     ctx.arc(cx, cy, 24, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = ob.color ?? '#7E22CE';
-    ctx.strokeStyle = ob.strokeColor ?? '#E879F9';
+    ctx.fillStyle = ob.color ?? obDesign?.color ?? '#7E22CE';
+    ctx.strokeStyle = ob.strokeColor ?? obDesign?.strokeColor ?? '#E879F9';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(cx, cy - 22);
@@ -1031,10 +1232,12 @@ function drawObstacle(ctx: CanvasRenderingContext2D, ob: BoardObstacle, time: nu
     ctx.fill();
     ctx.stroke();
   } else {
-    ctx.fillStyle = ob.color ?? '#475569';
-    roundRect(ctx, cx - 20, cy - 14, 40, 32, 6);
+    ctx.fillStyle = isCracked
+      ? ob.crackedColor ?? obDesign?.crackedColor ?? ob.color ?? obDesign?.color ?? '#475569'
+      : ob.color ?? obDesign?.color ?? '#475569';
+    roundRect(ctx, cx - 20, cy - 14, 40, 32, obDesign?.cornerRadius ?? 6);
     ctx.fill();
-    ctx.strokeStyle = ob.strokeColor ?? '#1E293B';
+    ctx.strokeStyle = ob.strokeColor ?? obDesign?.strokeColor ?? '#1E293B';
     ctx.lineWidth = 2;
     ctx.stroke();
   }
@@ -1047,7 +1250,7 @@ function drawObstacle(ctx: CanvasRenderingContext2D, ob: BoardObstacle, time: nu
   }
 
   if (ob.label) {
-    ctx.fillStyle = '#E2E8F0';
+    ctx.fillStyle = obDesign?.labelColor ?? '#E2E8F0';
     ctx.font = 'bold 8px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     ctx.fillText(ob.label, cx, y + cellSize - 5);
@@ -1055,11 +1258,12 @@ function drawObstacle(ctx: CanvasRenderingContext2D, ob: BoardObstacle, time: nu
 
   if (ob.destructible && ob.hp < ob.maxHp) {
     const ui = DESIGN_CATALOG.ui;
-    const barW = 42;
+    const barW = obDesign?.hpBarWidth ?? 42;
     const barH = 4;
     ctx.fillStyle = ui.hpBarBg;
     ctx.fillRect(cx - barW / 2, y + 6, barW, barH);
-    ctx.fillStyle = hpRatio > 0.5 ? ui.hpBarHigh : hpRatio > 0.25 ? ui.hpBarMid : ui.hpBarLow;
+    ctx.fillStyle =
+      obDesign?.hpBarColor ?? (hpRatio > 0.5 ? ui.hpBarHigh : hpRatio > 0.25 ? ui.hpBarMid : ui.hpBarLow);
     ctx.fillRect(cx - barW / 2, y + 6, barW * hpRatio, barH);
   }
 
@@ -1512,11 +1716,26 @@ function drawTower(ctx: CanvasRenderingContext2D, tower: Tower, time: number) {
   }
 
   const disabled = tower.suppressed || tower.hypnotized || tower.stunTimer > 0 || tower.deafTimer > 0;
+  const baseOpacity = td.opacity ?? 1;
   if (disabled) {
-    ctx.globalAlpha = statuses?.disabledAlpha ?? 0.62;
+    ctx.globalAlpha = baseOpacity * (statuses?.disabledAlpha ?? 0.62);
+  } else if (baseOpacity < 1) {
+    ctx.globalAlpha *= baseOpacity;
   }
 
-  const scale = td.scale ?? 1;
+  if (td.auraColor) {
+    const auraR = (td.auraRadius ?? 24) + Math.sin(time * (td.auraPulseSpeed ?? 4)) * 2;
+    ctx.fillStyle = td.auraColor;
+    ctx.beginPath();
+    ctx.arc(cx, cy, auraR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const breathe =
+    td.breatheAmp && td.breatheSpeed
+      ? 1 + Math.sin(time * td.breatheSpeed) * td.breatheAmp
+      : 1;
+  const scale = (td.scale ?? 1) * breathe;
   const offsetX = td.offsetX ?? 0;
   const offsetY =
     (td.offsetY ?? 0) +
@@ -1530,9 +1749,10 @@ function drawTower(ctx: CanvasRenderingContext2D, tower: Tower, time: number) {
     ctx.translate(-cx, -cy);
   }
 
-  if (td.glowColor) {
-    ctx.shadowColor = td.glowColor;
-    ctx.shadowBlur = td.glowBlur ?? 10;
+  const effRecoil = recoilOffset * (td.recoilScale ?? 1);
+  if (td.outlineGlowColor ?? td.glowColor) {
+    ctx.shadowColor = td.outlineGlowColor ?? td.glowColor ?? '#FFFFFF';
+    ctx.shadowBlur = td.outlineGlowBlur ?? td.glowBlur ?? 10;
   }
 
   const spriteImg = getCachedImage(td.sprite);
@@ -1541,7 +1761,7 @@ function drawTower(ctx: CanvasRenderingContext2D, tower: Tower, time: number) {
   const spriteH = td.spriteHeight ?? cellSize * 0.82;
 
   if (spriteImg && spriteMode === 'under') {
-    drawSpriteAt(ctx, spriteImg, cx - recoilOffset * 0.3, cy, spriteW, spriteH, {
+    drawSpriteAt(ctx, spriteImg, cx - effRecoil * 0.3, cy, spriteW, spriteH, {
       offsetX: td.spriteOffsetX,
       offsetY: td.spriteOffsetY,
       flipX: td.spriteFlipX,
@@ -1550,11 +1770,11 @@ function drawTower(ctx: CanvasRenderingContext2D, tower: Tower, time: number) {
   }
 
   if (!spriteImg || spriteMode !== 'replace') {
-    drawTowerVectorShape(ctx, tower, td, cx, cy, x, y, cellSize, recoilOffset, disabled, time);
+    drawTowerVectorShape(ctx, tower, td, cx, cy, x, y, cellSize, effRecoil, disabled, time);
   }
 
   if (spriteImg && (spriteMode === 'replace' || spriteMode === 'over')) {
-    drawSpriteAt(ctx, spriteImg, cx - recoilOffset * 0.3, cy, spriteW, spriteH, {
+    drawSpriteAt(ctx, spriteImg, cx - effRecoil * 0.3, cy, spriteW, spriteH, {
       offsetX: td.spriteOffsetX,
       offsetY: td.spriteOffsetY,
       flipX: td.spriteFlipX,
@@ -1577,18 +1797,43 @@ function drawTower(ctx: CanvasRenderingContext2D, tower: Tower, time: number) {
   const barW = td.hpBarWidth ?? ui.towerHpBarWidth ?? 48;
   const barH = td.hpBarHeight ?? ui.towerHpBarHeight ?? 5;
   const barOffY = td.hpBarOffsetY ?? ui.towerHpBarOffsetY ?? 6;
+  const barRadius = ui.hpBarRadius ?? 0;
   if (showHp && tower.hp < tower.maxHp) {
     const ratio = Math.max(0, tower.hp / tower.maxHp);
-    ctx.fillStyle = ui.hpBarBg;
-    ctx.fillRect(cx - barW / 2, y + barOffY, barW, barH);
-    ctx.fillStyle = ratio > 0.5 ? ui.hpBarHigh : ratio > 0.25 ? ui.hpBarMid : ui.hpBarLow;
-    ctx.fillRect(cx - barW / 2, y + barOffY, barW * ratio, barH);
+    const barX = cx - barW / 2;
+    const barY = y + barOffY;
+    ctx.fillStyle = td.hpBarBg ?? ui.hpBarBg;
+    if (barRadius > 0) {
+      roundRect(ctx, barX, barY, barW, barH, barRadius);
+      ctx.fill();
+    } else {
+      ctx.fillRect(barX, barY, barW, barH);
+    }
+    ctx.fillStyle =
+      td.hpBarFill ?? (ratio > 0.5 ? ui.hpBarHigh : ratio > 0.25 ? ui.hpBarMid : ui.hpBarLow);
+    if (barRadius > 0) {
+      roundRect(ctx, barX, barY, barW * ratio, barH, barRadius);
+      ctx.fill();
+    } else {
+      ctx.fillRect(barX, barY, barW * ratio, barH);
+    }
+    if (ui.hpBarBorderColor && (ui.hpBarBorderWidth ?? 0) > 0) {
+      ctx.strokeStyle = ui.hpBarBorderColor;
+      ctx.lineWidth = ui.hpBarBorderWidth ?? 1;
+      ctx.strokeRect(barX, barY, barW, barH);
+    }
   }
 
   if (tower.shieldHp && tower.shieldHp > 0) {
-    const shieldColor = tower.shieldColor ?? '#38BDF8';
+    const shieldColor = tower.shieldColor ?? td.shieldBarColor ?? ui.shieldBarColor ?? '#38BDF8';
+    const shieldRingCol = tower.shieldColor ?? td.shieldRingColor ?? shieldColor;
+    const shieldH = ui.shieldBarHeight ?? 3;
     ctx.save();
-    ctx.strokeStyle = shieldColor;
+    if (ui.shieldGlowColor) {
+      ctx.shadowColor = ui.shieldGlowColor;
+      ctx.shadowBlur = 6;
+    }
+    ctx.strokeStyle = shieldRingCol;
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 3]);
     ctx.beginPath();
@@ -1597,9 +1842,9 @@ function drawTower(ctx: CanvasRenderingContext2D, tower: Tower, time: number) {
     ctx.setLineDash([]);
     const shieldRatio = Math.min(1, tower.shieldHp / Math.max(100, tower.maxHp * 0.5));
     ctx.fillStyle = ui.hpBarBg;
-    ctx.fillRect(cx - barW / 2, y + Math.max(1, barOffY - 4), barW, 3);
+    ctx.fillRect(cx - barW / 2, y + Math.max(1, barOffY - 4), barW, shieldH);
     ctx.fillStyle = shieldColor;
-    ctx.fillRect(cx - barW / 2, y + Math.max(1, barOffY - 4), barW * shieldRatio, 3);
+    ctx.fillRect(cx - barW / 2, y + Math.max(1, barOffY - 4), barW * shieldRatio, shieldH);
     ctx.restore();
   }
 
@@ -1634,6 +1879,8 @@ function drawTower(ctx: CanvasRenderingContext2D, tower: Tower, time: number) {
     drawTowerTag(ctx, cx, tagY, badges.deafened.label, badges.deafened.border, badges.deafened.text);
   } else if (tower.immuneToPsych) {
     drawTowerTag(ctx, cx, tagY, badges.immune.label, badges.immune.border, badges.immune.text);
+  } else if (td.label) {
+    drawTowerTag(ctx, cx, tagY, td.label, td.accent, td.labelColor ?? ui.labelText);
   }
 }
 
@@ -2270,6 +2517,15 @@ function drawEnemy(
 
   ctx.save();
 
+  const eDef = ENEMY_CATALOG.find((e) => e.type === enemy.type);
+  const untargetCol = eDef?.behavior?.untargetableUntilCol;
+  if ((ed.opacity ?? 1) < 1) {
+    ctx.globalAlpha *= ed.opacity ?? 1;
+  }
+  if (untargetCol !== undefined && enemy.col > untargetCol) {
+    ctx.globalAlpha *= ed.stealthAlpha ?? 0.45;
+  }
+
   if (isMultiRow) {
     const minRow = Math.min(...spanRows);
     const maxRow = Math.max(...spanRows);
@@ -2322,7 +2578,10 @@ function drawEnemy(
     ctx.translate(-cx, -cy);
   }
 
-  if (ed.glowColor) {
+  if (enemy.customBadge && ed.eliteGlowColor) {
+    ctx.shadowColor = ed.eliteGlowColor;
+    ctx.shadowBlur = ed.eliteGlowBlur ?? 12;
+  } else if (ed.glowColor) {
     ctx.shadowColor = ed.glowColor;
     ctx.shadowBlur = ed.glowBlur ?? 10;
   }
@@ -2357,7 +2616,7 @@ function drawEnemy(
   }
 
   if (isBurning) {
-    ctx.strokeStyle = statuses?.burnRingColor ?? 'rgba(249, 115, 22, 0.85)';
+    ctx.strokeStyle = ed.burnTint ?? statuses?.burnRingColor ?? 'rgba(249, 115, 22, 0.85)';
     ctx.lineWidth = statuses?.burnRingWidth ?? 2;
     ctx.beginPath();
     ctx.arc(cx, cy, 20, 0, Math.PI * 2);
@@ -2373,7 +2632,7 @@ function drawEnemy(
   }
 
   if ((enemy.stunTimer ?? 0) > 0) {
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)';
+    ctx.strokeStyle = ed.stunRingColor ?? 'rgba(56, 189, 248, 0.9)';
     ctx.lineWidth = 2.5;
     ctx.setLineDash([4, 3]);
     ctx.beginPath();
@@ -2399,25 +2658,44 @@ function drawEnemy(
     const barW = ed.barWidth;
     const barH = ed.hpBarHeight ?? ui.enemyHpBarHeight ?? 5;
     const barOffY = ed.hpBarOffsetY ?? ui.enemyHpBarOffsetY ?? 5;
+    const barRadius = ui.hpBarRadius ?? 0;
     const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
-    ctx.fillStyle = ui.hpBarBg;
-    ctx.fillRect(cx - barW / 2, topY + barOffY, barW, barH);
+    const barX = cx - barW / 2;
+    const barY = topY + barOffY;
+    ctx.fillStyle = ed.hpBarBg ?? ui.hpBarBg;
+    if (barRadius > 0) {
+      roundRect(ctx, barX, barY, barW, barH, barRadius);
+      ctx.fill();
+    } else {
+      ctx.fillRect(barX, barY, barW, barH);
+    }
     ctx.fillStyle = ed.hpBar;
-    ctx.fillRect(cx - barW / 2, topY + barOffY, barW * hpRatio, barH);
+    if (barRadius > 0) {
+      roundRect(ctx, barX, barY, barW * hpRatio, barH, barRadius);
+      ctx.fill();
+    } else {
+      ctx.fillRect(barX, barY, barW * hpRatio, barH);
+    }
+    if (ui.hpBarBorderColor && (ui.hpBarBorderWidth ?? 0) > 0) {
+      ctx.strokeStyle = ui.hpBarBorderColor;
+      ctx.lineWidth = ui.hpBarBorderWidth ?? 1;
+      ctx.strokeRect(barX, barY, barW, barH);
+    }
 
     if (enemy.shieldHp && enemy.shieldHp > 0) {
-      const shieldColor = enemy.shieldColor ?? '#38BDF8';
+      const shieldColor = enemy.shieldColor ?? ed.shieldBarColor ?? ui.shieldBarColor ?? '#38BDF8';
+      const shieldH = ui.shieldBarHeight ?? 3;
       const shieldRatio = Math.min(1, enemy.shieldHp / Math.max(100, enemy.maxHp * 0.4));
       ctx.fillStyle = ui.hpBarBg;
-      ctx.fillRect(cx - barW / 2, topY + Math.max(1, barOffY - 4), barW, 3);
+      ctx.fillRect(barX, topY + Math.max(1, barOffY - 4), barW, shieldH);
       ctx.fillStyle = shieldColor;
-      ctx.fillRect(cx - barW / 2, topY + Math.max(1, barOffY - 4), barW * shieldRatio, 3);
+      ctx.fillRect(barX, topY + Math.max(1, barOffY - 4), barW * shieldRatio, shieldH);
     }
   }
 
   if (ed.showCodeLabel ?? true) {
-    ctx.fillStyle = ed.labelColor ?? ui.labelText;
-    ctx.font = DESIGN_CATALOG.fonts?.enemyLabel ?? '600 9px "JetBrains Mono", monospace';
+    const lblFont = DESIGN_CATALOG.fonts?.enemyLabel ?? '600 9px "JetBrains Mono", monospace';
+    ctx.font = lblFont;
     ctx.textAlign = 'center';
     const codeLabel =
       enemy.type === 'scp_008' && enemy.hasRevived
@@ -2425,7 +2703,16 @@ function drawEnemy(
         : enemy.type === 'scp_096' && enemy.phase096 === 'enraged'
         ? (ed.enragedLabel ?? '096!')
         : ed.codeLabel;
-    ctx.fillText(codeLabel, cx, topY + (ed.labelOffsetY ?? ui.enemyLabelOffsetY ?? 18));
+    const lblY = topY + (ed.labelOffsetY ?? ui.enemyLabelOffsetY ?? 18);
+    const lblBg = ed.labelBg ?? ui.enemyLabelBg;
+    if (lblBg) {
+      const tw = ctx.measureText(codeLabel).width + 8;
+      ctx.fillStyle = lblBg;
+      roundRect(ctx, cx - tw / 2, lblY - 9, tw, 12, ui.enemyLabelRadius ?? 3);
+      ctx.fill();
+    }
+    ctx.fillStyle = ed.labelColor ?? ui.labelText;
+    ctx.fillText(codeLabel, cx, lblY);
   }
 
   if ((enemy.stunTimer ?? 0) > 0) {
@@ -3045,8 +3332,26 @@ function drawProjectile(ctx: CanvasRenderingContext2D, proj: Projectile) {
   const x = gateWidth + proj.col * cellSize + cellSize / 2;
   const y = padTop + proj.row * cellSize + cellSize / 2 - 1;
   const pd = getProjectileDesign(proj.kind);
+  const dir = proj.direction ?? 1;
 
   ctx.save();
+  if (pd.alpha !== undefined && pd.alpha < 1) {
+    ctx.globalAlpha *= Math.max(0, pd.alpha);
+  }
+
+  if ((pd.trailLength ?? 0) > 0) {
+    const tLen = pd.trailLength!;
+    ctx.save();
+    ctx.strokeStyle = pd.trailColor || pd.color;
+    ctx.lineWidth = pd.trailWidth ?? Math.max(1.5, pd.radius * 0.6);
+    ctx.globalAlpha *= 0.45;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - dir * tLen, y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   if (pd.glowColor) {
     ctx.shadowColor = pd.glowColor;
     ctx.shadowBlur = pd.glowBlur ?? 8;
@@ -3054,7 +3359,8 @@ function drawProjectile(ctx: CanvasRenderingContext2D, proj: Projectile) {
 
   const sprite = getCachedImage(pd.sprite);
   if (sprite) {
-    const rotRad = ((pd.rotationDeg ?? 0) * Math.PI) / 180;
+    const rotRad =
+      ((pd.rotationDeg ?? 0) * Math.PI) / 180 + (pd.rotateToVelocity && dir === -1 ? Math.PI : 0);
     const w = pd.spriteWidth ?? pd.radius * 3;
     const h = pd.spriteHeight ?? pd.radius * 3;
     if (rotRad !== 0) {
@@ -3086,12 +3392,18 @@ function drawProjectile(ctx: CanvasRenderingContext2D, proj: Projectile) {
         color: pd.color,
         core: pd.coreColor,
         accent: pd.coreColor,
-        stroke: pd.glowColor ?? pd.color,
+        stroke: pd.outlineColor ?? pd.glowColor ?? pd.color,
         glow: pd.glowColor,
       },
     });
     ctx.restore();
     return;
+  }
+
+  if (pd.rotateToVelocity && dir === -1) {
+    ctx.translate(x, y);
+    ctx.scale(-1, 1);
+    ctx.translate(-x, -y);
   }
 
   if (shape === 'pellet_cluster') {
@@ -3102,16 +3414,79 @@ function drawProjectile(ctx: CanvasRenderingContext2D, proj: Projectile) {
     ctx.arc(x + 3, y, pd.radius, 0, Math.PI * 2);
     ctx.arc(x, y + spread, pd.radius, 0, Math.PI * 2);
     ctx.fill();
-  } else if (shape === 'streak') {
+  } else if (shape === 'streak' || shape === 'laser_bolt') {
+    const len = pd.length ?? (proj.kind === 'sniper' ? 24 : shape === 'laser_bolt' ? 22 : 16);
+    const h = shape === 'laser_bolt' ? Math.max(2.5, pd.radius * 0.85) : pd.radius;
     ctx.fillStyle = pd.color;
-    const len = pd.length ?? (proj.kind === 'sniper' ? 24 : proj.kind === 'turret' ? 18 : 14);
-    roundRect(ctx, x - len / 2, y - pd.radius / 2, len, pd.radius, pd.cornerRadius ?? 2);
+    roundRect(ctx, x - len / 2, y - h / 2, len, h, pd.cornerRadius ?? 2);
+    ctx.fill();
+    if (shape === 'laser_bolt') {
+      ctx.fillStyle = pd.coreColor;
+      roundRect(ctx, x - len / 2 + 2, y - h * 0.25, len - 4, h * 0.5, 1);
+      ctx.fill();
+    }
+  } else if (shape === 'diamond') {
+    const len = pd.length ?? pd.radius * 2.4;
+    const rad = pd.radius;
+    ctx.fillStyle = pd.color;
+    ctx.beginPath();
+    ctx.moveTo(x + len / 2, y);
+    ctx.lineTo(x, y - rad);
+    ctx.lineTo(x - len / 2, y);
+    ctx.lineTo(x, y + rad);
+    ctx.closePath();
+    ctx.fill();
+    if (pd.outlineColor) {
+      ctx.strokeStyle = pd.outlineColor;
+      ctx.lineWidth = pd.outlineWidth ?? 1.2;
+      ctx.stroke();
+    }
+    ctx.fillStyle = pd.coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, rad * (pd.coreRatio ?? 0.45), 0, Math.PI * 2);
+    ctx.fill();
+  } else if (shape === 'rocket') {
+    const len = pd.length ?? pd.radius * 3;
+    const rad = pd.radius;
+    ctx.fillStyle = pd.color;
+    roundRect(ctx, x - len / 2, y - rad * 0.55, len * 0.78, rad * 1.1, 2);
+    ctx.fill();
+    ctx.fillStyle = pd.coreColor;
+    ctx.beginPath();
+    ctx.moveTo(x + len * 0.5, y);
+    ctx.lineTo(x + len * 0.15, y - rad * 0.7);
+    ctx.lineTo(x + len * 0.15, y + rad * 0.7);
+    ctx.closePath();
+    ctx.fill();
+  } else if (shape === 'ring') {
+    ctx.strokeStyle = pd.color;
+    ctx.lineWidth = Math.max(2, pd.outlineWidth ?? pd.radius * 0.45);
+    ctx.beginPath();
+    ctx.arc(x, y, pd.radius * 1.15, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = pd.coreColor;
+    ctx.beginPath();
+    ctx.arc(x, y, pd.radius * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (shape === 'orb') {
+    const grad = ctx.createRadialGradient(x, y, 1, x, y, pd.radius * 1.4);
+    grad.addColorStop(0, pd.coreColor);
+    grad.addColorStop(0.55, pd.color);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, pd.radius * 1.4, 0, Math.PI * 2);
     ctx.fill();
   } else {
     ctx.fillStyle = pd.color;
     ctx.beginPath();
     ctx.arc(x, y, pd.radius, 0, Math.PI * 2);
     ctx.fill();
+    if (pd.outlineColor) {
+      ctx.strokeStyle = pd.outlineColor;
+      ctx.lineWidth = pd.outlineWidth ?? 1.2;
+      ctx.stroke();
+    }
     ctx.fillStyle = pd.coreColor;
     ctx.beginPath();
     ctx.arc(x, y, pd.radius * (pd.coreRatio ?? 0.45), 0, Math.PI * 2);
@@ -3270,15 +3645,36 @@ function drawEnergyDrop(ctx: CanvasRenderingContext2D, drop: EnergyDrop, time: n
 
   ctx.save();
   const radius = ui.energyDropRadius ?? 13;
-  const halo = (ui.energyDropHaloBase ?? 18) + Math.sin(time * 5) * (ui.energyDropHaloAmp ?? 2.5);
+  const pulseSpd = ui.energyDropPulseSpeed ?? 5;
+  const halo = (ui.energyDropHaloBase ?? 18) + Math.sin(time * pulseSpd) * (ui.energyDropHaloAmp ?? 2.5);
   ctx.fillStyle = ui.energyDropGlow;
   ctx.beginPath();
   ctx.arc(x, y, halo, 0, Math.PI * 2);
   ctx.fill();
 
   const sprite = getCachedImage(ui.energyDropSprite);
+  const dropShape = ui.energyDropShape ?? 'circle';
   if (sprite) {
     drawSpriteAt(ctx, sprite, x, y, radius * 2.2, radius * 2.2);
+  } else if (dropShape === 'diamond') {
+    ctx.fillStyle = ui.energyDropBg;
+    ctx.strokeStyle = ui.energyDropStroke;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y - radius - 2);
+    ctx.lineTo(x + radius + 2, y);
+    ctx.lineTo(x, y + radius + 2);
+    ctx.lineTo(x - radius - 2, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (dropShape === 'cell') {
+    ctx.fillStyle = ui.energyDropBg;
+    ctx.strokeStyle = ui.energyDropStroke;
+    ctx.lineWidth = 2;
+    roundRect(ctx, x - radius * 0.9, y - radius * 1.1, radius * 1.8, radius * 2.2, 4);
+    ctx.fill();
+    ctx.stroke();
   } else {
     ctx.fillStyle = ui.energyDropBg;
     ctx.strokeStyle = ui.energyDropStroke;
@@ -3293,7 +3689,7 @@ function drawEnergyDrop(ctx: CanvasRenderingContext2D, drop: EnergyDrop, time: n
   ctx.font = DESIGN_CATALOG.fonts?.energyDrop ?? '700 10px "JetBrains Mono", monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(`+${drop.amount}`, x, y + 0.5);
+  ctx.fillText(`${ui.energyDropLabelPrefix ?? '+'}${drop.amount}`, x, y + 0.5);
   ctx.restore();
 }
 

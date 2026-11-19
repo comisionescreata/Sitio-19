@@ -1,0 +1,15 @@
+{
+  "id": "no_scp_past_col_3",
+  "title": "Perímetro Estricto (Col. 3)",
+  "description": "No dejes que ningún SCP cruce más allá de la columna 3.",
+  "category": "fail_condition",
+  "kind": "no_enemy_past_col",
+  "col": 3,
+  "ignoreSkyFalling": true,
+  "failOnViolate": true,
+  "showBoundaryLine": true,
+  "boundaryColor": "#EF4444",
+  "boundaryLabel": "LÍMITE COL 3",
+  "failReason": "¡Un SCP cruzó la línea de contención de la columna 3!",
+  "color": "#EF4444"
+}

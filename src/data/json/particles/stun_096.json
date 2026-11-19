@@ -1,0 +1,47 @@
+{
+  "id": "stun_096",
+  "name": "Grito de Furia SCP-096",
+  "description": "Onda roja de pánico y fragmentos radiales.",
+  "category": "aura",
+  "screenShake": 6,
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#EF4444",
+        "#FCA5A5"
+      ],
+      "count": 1,
+      "durationSec": 0.62,
+      "sizePx": 18,
+      "ringExpandPx": 165,
+      "strokeWidth": 4.5
+    },
+    {
+      "shape": "shard",
+      "colors": [
+        "#EF4444",
+        "#FFFFFF"
+      ],
+      "count": 12,
+      "durationSec": [
+        0.3,
+        0.5
+      ],
+      "sizePx": [
+        3,
+        5.5
+      ],
+      "speedPx": [
+        90,
+        195
+      ],
+      "spreadDeg": 360,
+      "spinDegPerSec": [
+        -360,
+        360
+      ],
+      "blendMode": "lighter"
+    }
+  ]
+}

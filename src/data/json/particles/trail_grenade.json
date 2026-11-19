@@ -1,0 +1,25 @@
+{
+  "id": "trail_grenade",
+  "name": "Estela de Granada",
+  "description": "Humo ligero tras las granadas en vuelo.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(148, 163, 184, 0.45)"
+      ],
+      "count": 1,
+      "durationSec": 0.28,
+      "sizePx": 4.5,
+      "sizeEndScale": 1.8,
+      "alphaStart": 0.42,
+      "alphaEnd": 0,
+      "speedPx": [
+        8,
+        18
+      ],
+      "gravityPx": -16
+    }
+  ]
+}

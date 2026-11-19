@@ -1,0 +1,62 @@
+{
+  "id": "obstacle_break",
+  "name": "Destrucción de Lápida / Obstáculo",
+  "description": "Escombros de piedra y polvo denso al despejar un obstáculo del tablero.",
+  "category": "obstacle",
+  "emitters": [
+    {
+      "shape": "shard",
+      "colors": [
+        "#94A3B8",
+        "#64748B",
+        "#CBD5E1"
+      ],
+      "count": 14,
+      "durationSec": [
+        0.4,
+        0.68
+      ],
+      "sizePx": [
+        4,
+        7.5
+      ],
+      "sizeEndScale": 0.35,
+      "speedPx": [
+        60,
+        150
+      ],
+      "angleDeg": -90,
+      "spreadDeg": 200,
+      "gravityPx": 280,
+      "spinDegPerSec": [
+        -420,
+        420
+      ]
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(148, 163, 184, 0.55)",
+        "rgba(100, 116, 139, 0.5)"
+      ],
+      "count": 9,
+      "durationSec": [
+        0.5,
+        0.85
+      ],
+      "sizePx": [
+        10,
+        18
+      ],
+      "sizeEndScale": 2.2,
+      "alphaStart": 0.55,
+      "alphaEnd": 0,
+      "speedPx": [
+        20,
+        55
+      ],
+      "spreadDeg": 360,
+      "gravityPx": -20
+    }
+  ]
+}

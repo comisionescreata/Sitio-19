@@ -1,0 +1,36 @@
+{
+  "id": "attack_scp_ranged",
+  "name": "Ataque Anómalo a Distancia",
+  "description": "Estallido carmesí de proyectil o rayo lanzado por un SCP.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "spark",
+      "colors": [
+        "#F43F5E",
+        "#FB7185",
+        "#FCA5A5"
+      ],
+      "count": 9,
+      "durationSec": [
+        0.18,
+        0.34
+      ],
+      "sizePx": [
+        2.5,
+        4.5
+      ],
+      "sizeEndScale": 0.15,
+      "speedPx": [
+        65,
+        145
+      ],
+      "angleDeg": 180,
+      "spreadDeg": 70,
+      "offsetX": -18,
+      "blendMode": "lighter",
+      "glowColor": "#F43F5E",
+      "glowBlur": 8
+    }
+  ]
+}

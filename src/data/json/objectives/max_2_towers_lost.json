@@ -1,0 +1,10 @@
+{
+  "id": "max_2_towers_lost",
+  "title": "Bajas Mínimas",
+  "description": "No pierdas más de 2 unidades o estructuras durante la brecha.",
+  "category": "secondary",
+  "kind": "max_towers_lost",
+  "maxCount": 2,
+  "scoreBonus": 200,
+  "color": "#10B981"
+}

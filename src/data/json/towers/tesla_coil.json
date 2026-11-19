@@ -1,0 +1,15 @@
+{
+  "type": "tesla_coil",
+  "name": "Bobina Tesla",
+  "category": "estructura",
+  "cost": 225,
+  "cooldown": 9.5,
+  "maxHp": 380,
+  "unlockLevel": 14,
+  "roleLabel": "Arco 3x3 · 38",
+  "description": "Descarga arcos eléctricos en un área de 3x3 golpeando hasta 3 objetivos a la vez.",
+  "fireRate": 1.75,
+  "damage": 38,
+  "aoeTargets": 3,
+  "canBeHypnotized": true
+}

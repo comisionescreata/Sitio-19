@@ -1,0 +1,30 @@
+{
+  "type": "scp_096",
+  "code": "SCP-096",
+  "name": "El Tímido",
+  "classification": "Euclid · Furia Letal",
+  "hp": 1150,
+  "speed": 0.2,
+  "dps": 22,
+  "scoreValue": 150,
+  "portrait": "/src/assets/images/096.webp",
+  "summary": "Gran salud inicial. En la segunda casilla convulsiona y grita aturdiendo torres; luego corre veloz con la vida de un SCP-008 (140) pero daño letal.",
+  "tacticalNote": "Resiste su embestida furiosa con Barricadas, Búnkeres o Minas mientras tus torres recuperan el control.",
+  "effects": [
+    "scream_096"
+  ],
+  "announcement": "SCP-096 detectado: convulsiona en la segunda casilla y embiste a gran velocidad.",
+  "behavior": {
+    "laneSpan": 1,
+    "enrage096": {
+      "triggerCol": 7.45,
+      "convulseSec": 2.4,
+      "enragedHpFrom": "scp_008",
+      "enragedSpeed": 1.65,
+      "enragedDps": 180,
+      "stunRadiusRow": 1,
+      "stunRadiusCol": 3.5,
+      "effectId": "scream_096"
+    }
+  }
+}

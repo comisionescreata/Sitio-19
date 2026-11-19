@@ -1,0 +1,59 @@
+{
+  "id": "death_tower",
+  "name": "Caída de Unidad / Estructura",
+  "description": "Chispas cortocircuitadas y humo cuando cae una defensa aliada.",
+  "category": "obstacle",
+  "emitters": [
+    {
+      "shape": "spark",
+      "colors": [
+        "#F59E0B",
+        "#94A3B8",
+        "#EF4444"
+      ],
+      "count": 10,
+      "durationSec": [
+        0.3,
+        0.52
+      ],
+      "sizePx": [
+        2.5,
+        4.5
+      ],
+      "sizeEndScale": 0.15,
+      "speedPx": [
+        45,
+        115
+      ],
+      "angleDeg": -90,
+      "spreadDeg": 200,
+      "gravityPx": 200,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(71, 85, 105, 0.6)",
+        "rgba(30, 41, 59, 0.55)"
+      ],
+      "count": 6,
+      "durationSec": [
+        0.45,
+        0.72
+      ],
+      "sizePx": [
+        9,
+        15
+      ],
+      "sizeEndScale": 2,
+      "alphaStart": 0.55,
+      "alphaEnd": 0,
+      "speedPx": [
+        18,
+        45
+      ],
+      "spreadDeg": 360,
+      "gravityPx": -25
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "tesla_sweep",
+  "engineMode": "builtin",
+  "category": "utility",
+  "kind": "lane_sweep",
+  "name": "Descarga Tesla de Emergencia",
+  "description": "Barrido único por fila que elimina a todos los SCP en el carril si alcanzan el borde.",
+  "trigger": "passive",
+  "targetSide": "enemies",
+  "areaShape": "lane",
+  "durationSec": 0.75,
+  "color": "#38BDF8",
+  "modifiers": {
+    "instakill": true
+  },
+  "visual": {
+    "sound": "tesla"
+  }
+}

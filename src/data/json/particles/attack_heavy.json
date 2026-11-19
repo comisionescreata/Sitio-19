@@ -1,0 +1,58 @@
+{
+  "id": "attack_heavy",
+  "name": "Ráfaga Rotativa Pesada",
+  "description": "Lluvia intensa de chispas y casquillos para el Artillero Pesado.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "spark",
+      "colors": [
+        "#F59E0B",
+        "#FEF08A",
+        "#FB923C"
+      ],
+      "count": 9,
+      "durationSec": [
+        0.14,
+        0.25
+      ],
+      "sizePx": [
+        2.4,
+        4
+      ],
+      "sizeEndScale": 0.15,
+      "speedPx": [
+        95,
+        195
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 42,
+      "drag": 3.8,
+      "offsetX": 28,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "square",
+      "colors": [
+        "#FBBF24",
+        "#D97706"
+      ],
+      "count": 2,
+      "durationSec": 0.35,
+      "sizePx": 2.6,
+      "speedPx": [
+        45,
+        75
+      ],
+      "angleDeg": -125,
+      "spreadDeg": 30,
+      "gravityPx": 260,
+      "spinDegPerSec": [
+        -500,
+        500
+      ],
+      "offsetX": 6,
+      "offsetY": 4
+    }
+  ]
+}

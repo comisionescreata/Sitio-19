@@ -1,0 +1,80 @@
+{
+  "id": "deploy_personal",
+  "name": "Despliegue de Personal",
+  "description": "Pulso táctico cian y chispas ascendentes al desplegar agentes humanos o personal MTF.",
+  "category": "deployment",
+  "emitters": [
+    {
+      "shape": "ring",
+      "colors": [
+        "#38BDF8",
+        "#7DD3FC"
+      ],
+      "count": 1,
+      "durationSec": 0.42,
+      "sizePx": 10,
+      "ringExpandPx": 38,
+      "alphaStart": 0.9,
+      "alphaEnd": 0,
+      "strokeWidth": 2.5,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "spark",
+      "colors": [
+        "#38BDF8",
+        "#E0F2FE",
+        "#FBBF24"
+      ],
+      "count": 12,
+      "durationSec": [
+        0.35,
+        0.55
+      ],
+      "sizePx": [
+        2.2,
+        4
+      ],
+      "sizeEndScale": 0.15,
+      "speedPx": [
+        35,
+        85
+      ],
+      "angleDeg": -90,
+      "spreadDeg": 150,
+      "gravityPx": 90,
+      "drag": 2.4,
+      "spawnRadiusPx": 16,
+      "blendMode": "lighter",
+      "glowColor": "#38BDF8",
+      "glowBlur": 6
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(148, 163, 184, 0.45)",
+        "rgba(226, 232, 240, 0.35)"
+      ],
+      "count": 6,
+      "durationSec": [
+        0.4,
+        0.6
+      ],
+      "sizePx": [
+        7,
+        12
+      ],
+      "sizeEndScale": 1.9,
+      "alphaStart": 0.45,
+      "alphaEnd": 0,
+      "speedPx": [
+        18,
+        42
+      ],
+      "angleDeg": -90,
+      "spreadDeg": 180,
+      "offsetY": 16,
+      "spawnRadiusPx": 14
+    }
+  ]
+}

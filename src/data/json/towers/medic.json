@@ -1,0 +1,12 @@
+{
+  "type": "medic",
+  "name": "Médico de Campo",
+  "category": "personal",
+  "cost": 75,
+  "cooldown": 6.5,
+  "maxHp": 180,
+  "roleLabel": "Cura 3x3 · +25 HP",
+  "description": "Restaura +25 de salud cada segundo en un area de 3 x 3",
+  "healAmount": 25,
+  "healInterval": 1
+}

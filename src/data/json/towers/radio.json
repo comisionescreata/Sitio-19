@@ -1,0 +1,11 @@
+{
+  "type": "radio",
+  "name": "Torre de Radio",
+  "category": "estructura",
+  "cost": 100,
+  "cooldown": 8,
+  "maxHp": 280,
+  "unlockLevel": 20,
+  "roleLabel": "Anti-035/066 · 3x3",
+  "description": "Protege en 3x3 contra SCP-035, acelera +15% el fuego cercano y reduce a 3s el grito de SCP-066."
+}

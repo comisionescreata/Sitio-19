@@ -1,0 +1,61 @@
+{
+  "id": "death_scp",
+  "name": "Neutralización de SCP",
+  "description": "Dispersión anómala al eliminar una entidad SCP.",
+  "category": "impact",
+  "emitters": [
+    {
+      "shape": "shard",
+      "colors": [
+        "#EF4444",
+        "#94A3B8",
+        "#FCA5A5"
+      ],
+      "count": 9,
+      "durationSec": [
+        0.3,
+        0.52
+      ],
+      "sizePx": [
+        3,
+        5.5
+      ],
+      "sizeEndScale": 0.2,
+      "speedPx": [
+        45,
+        115
+      ],
+      "spreadDeg": 360,
+      "gravityPx": 130,
+      "spinDegPerSec": [
+        -300,
+        300
+      ]
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(51, 65, 85, 0.55)",
+        "rgba(127, 29, 29, 0.4)"
+      ],
+      "count": 5,
+      "durationSec": [
+        0.4,
+        0.65
+      ],
+      "sizePx": [
+        8,
+        14
+      ],
+      "sizeEndScale": 1.9,
+      "alphaStart": 0.5,
+      "alphaEnd": 0,
+      "speedPx": [
+        18,
+        45
+      ],
+      "spreadDeg": 360,
+      "gravityPx": -22
+    }
+  ]
+}

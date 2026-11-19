@@ -1,0 +1,34 @@
+{
+  "id": "impact_standard",
+  "name": "Impacto Balístico",
+  "description": "Chispas rápidas al golpear un objetivo.",
+  "category": "impact",
+  "emitters": [
+    {
+      "shape": "spark",
+      "colors": [
+        "#FDE047",
+        "#F8FAFC",
+        "#F59E0B"
+      ],
+      "count": 6,
+      "durationSec": [
+        0.14,
+        0.24
+      ],
+      "sizePx": [
+        2,
+        3.2
+      ],
+      "sizeEndScale": 0.1,
+      "speedPx": [
+        55,
+        120
+      ],
+      "angleDeg": 180,
+      "spreadDeg": 150,
+      "drag": 4.2,
+      "blendMode": "lighter"
+    }
+  ]
+}

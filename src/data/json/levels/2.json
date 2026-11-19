@@ -1,0 +1,66 @@
+{
+  "level": 2,
+  "title": "Sector 2: Unos pocos más para contener",
+  "description": "Mas scp 008, solo eso, igual, buena suerte",
+  "coverImage": "/src/assets/images/scp-008.png",
+  "startingEnergy": 250,
+  "maxDeckSlots": 6,
+  "rewardLabel": "Desbloquea: Médico de Campo",
+  "grid": {
+    "rows": 4,
+    "cols": 9
+  },
+  "events": [
+    {
+      "time": 10,
+      "type": "scp_008"
+    },
+    {
+      "time": 6,
+      "type": "scp_008",
+      "count": 2
+    },
+    {
+      "time": 4,
+      "type": "scp_008",
+      "count": 2
+    },
+    {
+      "time": 2.5,
+      "type": "scp_008"
+    },
+    {
+      "time": 10,
+      "type": "scp_008",
+      "count": 3
+    },
+    {
+      "time": 8,
+      "type": "scp_008",
+      "count": 4
+    },
+    {
+      "time": 4,
+      "type": "scp_008",
+      "count": 3
+    },
+    {
+      "time": 7,
+      "type": "scp_008",
+      "count": 4
+    },
+    {
+      "time": 12,
+      "type": "scp_008",
+      "count": 6,
+      "isFlagHorde": true,
+      "hordeLabel": "Se aproxima una gran horda de muertos vivientes"
+    },
+    {
+      "time": 2,
+      "type": "scp_008",
+      "count": 4
+    }
+  ],
+  "unlockTower": "medic"
+}

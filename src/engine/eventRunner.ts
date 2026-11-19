@@ -395,6 +395,10 @@ export function executeLevelEvent(
     return false;
   }
 
+  if (def.id && s.triggeredEventIds) {
+    s.triggeredEventIds.add(def.id);
+  }
+
   const logic = def.logic;
   const visual = def.visual;
 
@@ -512,6 +516,9 @@ export function executeLevelEvent(
         } else {
           s.obstacles = s.obstacles.filter((o) => o.id !== ob.id);
           s.obstacleDestroyedCount += 1;
+          if (s.obstaclesDestroyedByKind) {
+            s.obstaclesDestroyedByKind[ob.kind] = (s.obstaclesDestroyedByKind[ob.kind] ?? 0) + 1;
+          }
           spawnParticleBurst(s, ob.row, ob.col, '#94A3B8', 10, 75, 0.45, 3, nextId);
         }
       }
@@ -1021,6 +1028,19 @@ export function executeLevelEvent(
         color: visual.waveColorRgb ?? '#F59E0B',
         radiusPx: visual.waveRadiusPx,
       });
+    }
+
+    if (visual.particlePresetId && s.particleSystem) {
+      const meta = s.particleSystem.emitPreset(visual.particlePresetId, effRow, effCol);
+      if (meta?.screenShake && meta.screenShake > 0) {
+        s.shakeIntensity = Math.max(s.shakeIntensity, meta.screenShake);
+        s.shakeTimer = Math.max(s.shakeTimer, 0.45);
+      }
+      if (meta?.screenFlashRgb) {
+        s.flashRgb = meta.screenFlashRgb;
+        s.flashAlpha = Math.max(s.flashAlpha, meta.screenFlashAlpha ?? 0.32);
+        s.flashDecaySpeed = 2.4;
+      }
     }
 
     if (visual.particleBurst) {

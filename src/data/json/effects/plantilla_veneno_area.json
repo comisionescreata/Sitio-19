@@ -1,0 +1,36 @@
+{
+  "id": "plantilla_veneno_area",
+  "engineMode": "declarative",
+  "isTemplate": true,
+  "category": "aura",
+  "kind": "custom_dot_pulse",
+  "name": "Plantilla: Nube Tóxica 3x3",
+  "description": "Cada 4s infecta a rivales en 3x3 infligiendo 15 daño/s durante 3s.",
+  "trigger": "periodic",
+  "targetSide": "opponents",
+  "areaShape": "square",
+  "radiusCells": 1,
+  "initialDelaySec": 2,
+  "intervalSec": 4,
+  "durationSec": 3,
+  "color": "#A3E635",
+  "badgeLabel": "TÓXICO",
+  "badgeTextColor": "#ECFCCB",
+  "modifiers": {
+    "dotDps": 15,
+    "respectImmunity": "none"
+  },
+  "visual": {
+    "showZone": true,
+    "zoneRgb": "163, 230, 53",
+    "zoneStroke": "rgba(163, 230, 53, 0.65)",
+    "warnBeforeSec": 1,
+    "waveKind": "ring",
+    "waveColorRgb": "163, 230, 53",
+    "waveRadiusPx": 95,
+    "waveDurationSec": 0.55,
+    "floatingText": "¡TÓXICO!",
+    "floatingTextColor": "#BEF264",
+    "targetTintColor": "rgba(163, 230, 53, 0.85)"
+  }
+}

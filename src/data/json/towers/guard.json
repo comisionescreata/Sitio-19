@@ -1,0 +1,16 @@
+{
+  "type": "guard",
+  "name": "Guardia Armado",
+  "category": "personal",
+  "cost": 100,
+  "cooldown": 5,
+  "maxHp": 100,
+  "unlockLevel": 0,
+  "roleLabel": "Rifle · 25 daño",
+  "description": "Personal básico de seguridad. Dispara en su carril",
+  "fireRate": 1.25,
+  "damage": 25,
+  "burstCount": 1,
+  "projectileKind": "standard",
+  "canBeHypnotized": true
+}

@@ -1,0 +1,18 @@
+{
+  "id": "immunity_058",
+  "engineMode": "builtin",
+  "category": "immunity",
+  "kind": "status_immunity",
+  "name": "Inmunidad Anómala Total (SCP-058)",
+  "description": "SCP-058 posee 70 de vida y avanza a gran velocidad siendo inmune a todo efecto de ralentización, congelación o quemadura.",
+  "trigger": "passive",
+  "targetSide": "self",
+  "areaShape": "self",
+  "color": "#F43F5E",
+  "badgeLabel": "INMUNE EFECT.",
+  "modifiers": {
+    "grantsImmunities": [
+      "all_effects"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "type": "bunker",
+  "name": "Búnker Reforzado",
+  "category": "estructura",
+  "cost": 150,
+  "cooldown": 14,
+  "maxHp": 2400,
+  "unlockLevel": 11,
+  "roleLabel": "Muro · 2400 HP",
+  "description": "Fortificación pesada con púas que devuelven 18 de daño/s a los SCP que la atacan.",
+  "thornsDps": 18
+}

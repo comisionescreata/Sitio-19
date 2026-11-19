@@ -1,0 +1,13 @@
+{
+  "type": "mine",
+  "name": "Mina de Brecha",
+  "category": "estructura",
+  "cost": 25,
+  "cooldown": 11,
+  "maxHp": 100,
+  "unlockLevel": 4,
+  "roleLabel": "Explosiva · 420",
+  "description": "Se arma en 4s y detona al contacto causando 420 de daño. Se desactiva en el 3x3 de SCP-966.",
+  "armTime": 4,
+  "explosionDamage": 420
+}

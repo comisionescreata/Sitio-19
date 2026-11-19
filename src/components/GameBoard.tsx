@@ -1,5 +1,7 @@
 import {
+  AlertTriangle,
   BookOpen,
+  CheckCircle2,
   FastForward,
   Flag,
   Maximize2,
@@ -8,14 +10,17 @@ import {
   Play,
   RotateCcw,
   Shield,
+  Target,
   Trash2,
   UserCheck,
   Volume2,
   VolumeX,
+  XCircle,
   Zap,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  DESIGN_CATALOG,
   DIALOGUES_CATALOG,
   ENEMY_CATALOG,
   GAME_CONFIG,
@@ -24,6 +29,7 @@ import {
 } from '../data/scpCatalog';
 import { CustomBannerState } from '../engine/eventRunner';
 import {
+  BoundaryLineOverlay,
   getCanvasDimensions,
   pxToCell,
   renderBoard,
@@ -40,7 +46,13 @@ import {
   SimState,
   stepSimulation,
 } from '../engine/simulation';
-import { DialogueDefinition, GameState, LevelConfig, TowerType } from '../types/game';
+import {
+  DialogueDefinition,
+  GameState,
+  LevelConfig,
+  ObjectiveProgressState,
+  TowerType,
+} from '../types/game';
 import { soundEngine } from '../utils/sound';
 import { DialogueCompletionResult, DialogueOverlay } from './DialogueOverlay';
 
@@ -100,7 +112,10 @@ export function GameBoard({
     announcement: string;
     flagBanner: string;
     customBanner: CustomBannerState | null;
-    cooldowns: Record<TowerType, number>;
+    cooldowns: Record<string, number>;
+    objectives: ObjectiveProgressState[];
+    defeatReason?: string;
+    endlessCycle: number;
   }>({
     energy: levelConfig.startingEnergy,
     progress: 0,
@@ -110,6 +125,9 @@ export function GameBoard({
     flagBanner: '',
     customBanner: null,
     cooldowns: { ...simRef.current.cooldowns },
+    objectives: simRef.current.objectives.map((o) => ({ ...o })),
+    defeatReason: undefined,
+    endlessCycle: 0,
   });
 
   const gameStateRef = useRef<GameState>(gameState);
@@ -149,12 +167,56 @@ export function GameBoard({
     const s = simRef.current;
     const cfg = levelConfigRef.current;
     const vc = cfg.victoryCondition;
+    const mode = vc?.mode ?? 'standard';
     let rawProgress = 0;
 
-    if (vc?.mode === 'survive_time' && vc.targetSeconds && vc.targetSeconds > 0) {
-      rawProgress = Math.min(1, s.levelTimer / vc.targetSeconds);
-    } else if (vc?.mode === 'kill_count' && vc.targetKills && vc.targetKills > 0) {
-      rawProgress = Math.min(1, s.kills / vc.targetKills);
+    const countVictoryKills = () => {
+      const types = vc?.targetEnemyTypes;
+      if (!types || types.length === 0) return s.kills;
+      return types.reduce((acc, t) => acc + (s.killsByEnemyType[t] ?? 0), 0);
+    };
+
+    if (mode === 'survive_time') {
+      const targetSec = vc?.targetSeconds ?? cfg.durationSeconds;
+      rawProgress = targetSec > 0 ? Math.min(1, s.levelTimer / targetSec) : 0;
+    } else if (mode === 'kill_count') {
+      const targetKills = vc?.targetKills ?? 25;
+      rawProgress = targetKills > 0 ? Math.min(1, countVictoryKills() / targetKills) : 0;
+    } else if (mode === 'survive_and_kill') {
+      const targetSec = vc?.targetSeconds ?? cfg.durationSeconds;
+      const targetKills = vc?.targetKills ?? 25;
+      const tProg = targetSec > 0 ? Math.min(1, s.levelTimer / targetSec) : 1;
+      const kProg = targetKills > 0 ? Math.min(1, countVictoryKills() / targetKills) : 1;
+      rawProgress = (tProg + kProg) / 2;
+    } else if (mode === 'destroy_obstacles') {
+      const kind = vc?.obstacleKind;
+      const destroyed = kind
+        ? s.obstaclesDestroyedByKind[kind] ?? 0
+        : s.obstacleDestroyedCount;
+      const remaining = s.obstacles.filter((o) => !kind || o.kind === kind).length;
+      const total = vc?.targetObstacles ?? Math.max(1, destroyed + remaining);
+      rawProgress = Math.min(1, destroyed / Math.max(1, total));
+    } else if (mode === 'objectives_only') {
+      const primaries = s.objectives.filter(
+        (o) => o.category === 'primary' || o.def.requiredForVictory
+      );
+      if (primaries.length > 0) {
+        const done = primaries.filter((o) => o.status === 'completed').length;
+        rawProgress = Math.min(1, done / primaries.length);
+      } else {
+        rawProgress = Math.min(0.99, s.levelTimer / Math.max(1, cfg.durationSeconds));
+      }
+    } else if (mode === 'boss_hunt') {
+      const bosses = vc?.targetEnemyTypes ?? [];
+      if (bosses.length > 0) {
+        const killedCount = bosses.filter((b) => (s.killsByEnemyType[b] ?? 0) > 0).length;
+        rawProgress = Math.min(1, killedCount / bosses.length);
+      } else {
+        rawProgress = Math.min(0.99, s.levelTimer / Math.max(1, cfg.durationSeconds));
+      }
+    } else if (mode === 'endless') {
+      const dur = Math.max(1, cfg.durationSeconds);
+      rawProgress = (s.levelTimer % dur) / dur;
     } else {
       const allSpawned =
         s.spawnedIndices.size >= s.timeline.length && s.pendingStaggeredSpawns.length === 0;
@@ -173,6 +235,9 @@ export function GameBoard({
       flagBanner: s.flagBannerTimer > 0 ? s.flagBanner : '',
       customBanner: s.customBanner && s.customBanner.remaining > 0 ? { ...s.customBanner } : null,
       cooldowns: { ...s.cooldowns },
+      objectives: s.objectives.map((o) => ({ ...o })),
+      defeatReason: s.defeatReason,
+      endlessCycle: s.endlessCycle ?? 0,
     });
   }, []);
 
@@ -357,14 +422,26 @@ export function GameBoard({
           const selectedDef =
             tool && tool !== 'remove' ? TOWER_CATALOG.find((t) => t.type === tool) : null;
           const selectedCost = selectedDef
-            ? getEffectiveTowerCost(selectedDef.type, s.rules)
+            ? getEffectiveTowerCost(selectedDef.type, s.rules, s)
             : 0;
           const canAfford = selectedDef
             ? s.energy >= selectedCost &&
-              s.cooldowns[selectedDef.type] <= 0 &&
+              (s.cooldowns[selectedDef.type] ?? 0) <= 0 &&
               (hover ? canPlaceTowerAt(s, selectedDef.type, hover.row, hover.col) : true)
             : false;
           const hasActive049 = s.enemies.some((e) => e.type === 'scp_049' && e.hp > 0);
+          const boundaryLines: BoundaryLineOverlay[] = s.objectives
+            .filter(
+              (o) =>
+                o.def.kind === 'no_enemy_past_col' &&
+                o.def.showBoundaryLine !== false
+            )
+            .map((o) => ({
+              col: o.def.col ?? 3,
+              color: o.def.boundaryColor ?? o.def.color,
+              label: o.def.boundaryLabel ?? `LÍMITE COL ${o.def.col ?? 3}`,
+              rows: o.def.rows,
+            }));
 
           renderBoard(ctx, {
             gridRows: s.gridRows,
@@ -382,12 +459,14 @@ export function GameBoard({
             screenTints: s.activeScreenTints,
             weather: s.activeWeather,
             laneHighlights: s.activeLaneHighlights,
+            boundaryLines,
             towers: s.towers,
             enemies: s.enemies,
             doors079: s.doors079,
             projectiles: s.projectiles,
             energyDrops: s.energyDrops,
             effects: s.effects,
+            particleSystem: s.particleSystem,
             gates: s.gates,
             hoverCell: hover,
             selectedTool: tool,
@@ -469,12 +548,22 @@ export function GameBoard({
     .map((t) => ENEMY_CATALOG.find((e) => e.type === t)?.code ?? t)
     .join(' · ');
 
+  const hudTheme = DESIGN_CATALOG.hudTheme;
+  const currentCatalogIdx = LEVEL_CATALOG.findIndex((l) => l.level === levelConfig.level);
+  const hasNextLevel = currentCatalogIdx >= 0 && currentCatalogIdx + 1 < LEVEL_CATALOG.length;
+
   let keyCounter = 0;
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#0E1217] text-slate-100">
       {/* Top HUD Bar */}
-      <header className="shrink-0 border-b border-slate-800 bg-[#131820] px-4 py-2">
+      <header
+        className="shrink-0 border-b border-slate-800 bg-[#131820] px-4 py-2"
+        style={{
+          ...(hudTheme?.headerBg ? { backgroundColor: hudTheme.headerBg } : {}),
+          ...(hudTheme?.panelBorder ? { borderColor: hudTheme.panelBorder } : {}),
+        }}
+      >
         <div className="mx-auto flex max-w-[1360px] flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-4">
             <button
@@ -600,6 +689,10 @@ export function GameBoard({
         <section
           aria-label="Mazo de Personal y Estructuras"
           className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-[#141A22] px-3 py-2"
+          style={{
+            ...(hudTheme?.panelBg ? { backgroundColor: hudTheme.panelBg } : {}),
+            ...(hudTheme?.panelBorder ? { borderColor: hudTheme.panelBorder } : {}),
+          }}
         >
           <div className="flex flex-wrap items-center gap-3">
             {personalCards.length > 0 && (
@@ -609,7 +702,11 @@ export function GameBoard({
                   {personalCards.map((card) => {
                     keyCounter += 1;
                     const shortcut = keyCounter === 10 ? 0 : keyCounter;
-                    const effectiveCost = getEffectiveTowerCost(card.type, levelConfig.rules);
+                    const effectiveCost = getEffectiveTowerCost(
+                      card.type,
+                      levelConfig.rules,
+                      simRef.current
+                    );
                     const effectiveCd = getEffectiveTowerCooldown(card.type, levelConfig.rules);
                     const cd = hud.cooldowns[card.type] ?? 0;
                     const affordable = hud.energy >= effectiveCost;
@@ -671,7 +768,11 @@ export function GameBoard({
                   {estructuraCards.map((card) => {
                     keyCounter += 1;
                     const shortcut = keyCounter === 10 ? 0 : keyCounter;
-                    const effectiveCost = getEffectiveTowerCost(card.type, levelConfig.rules);
+                    const effectiveCost = getEffectiveTowerCost(
+                      card.type,
+                      levelConfig.rules,
+                      simRef.current
+                    );
                     const effectiveCd = getEffectiveTowerCooldown(card.type, levelConfig.rules);
                     const cd = hud.cooldowns[card.type] ?? 0;
                     const affordable = hud.energy >= effectiveCost;
@@ -748,15 +849,67 @@ export function GameBoard({
             {hud.announcement ||
               `Recoge las celdas de energía (+${GAME_CONFIG.gameplay.energyDropAmount}) y defiende las ${levelConfig.gridRows} filas del Sector (${levelConfig.gridCols}x${levelConfig.gridRows}).`}
           </p>
-          <span className="font-mono-num text-slate-400">SCP del nivel: {levelEnemyCodes}</span>
+          <span className="font-mono-num text-slate-400">
+            {levelConfig.victoryCondition?.mode === 'endless' && hud.endlessCycle > 0
+              ? `Ciclo ${hud.endlessCycle + 1} · `
+              : ''}
+            SCP del nivel: {levelEnemyCodes}
+          </span>
         </div>
+
+        {/* Live Level Objectives Tracker */}
+        {hud.objectives.length > 0 && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 px-1">
+            {hud.objectives.map((obj) => {
+              const isDone = obj.status === 'completed';
+              const isFail = obj.status === 'failed';
+              const isConstraint =
+                obj.category === 'fail_condition' || Boolean(obj.def.failOnViolate);
+              return (
+                <div
+                  key={obj.def.id}
+                  className={`flex items-center gap-2 rounded-md border px-2.5 py-1 text-[11px] ${
+                    isFail
+                      ? 'border-red-500/60 bg-red-950/50 text-red-200'
+                      : isDone
+                      ? 'border-emerald-500/60 bg-emerald-950/40 text-emerald-200'
+                      : isConstraint
+                      ? 'border-amber-500/40 bg-[#141A22] text-slate-200'
+                      : 'border-slate-700 bg-[#141A22] text-slate-200'
+                  }`}
+                >
+                  {isDone ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  ) : isFail ? (
+                    <XCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                  ) : isConstraint ? (
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                  ) : (
+                    <Target className="h-3.5 w-3.5 shrink-0 text-sky-400" />
+                  )}
+                  <span className="font-medium">{obj.def.title ?? obj.def.description}</span>
+                  {obj.progressText && (
+                    <span className="font-mono-num font-bold text-amber-300">
+                      {obj.progressText}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Fullscreen-Scaled Canvas Container */}
         <div className="relative flex min-h-0 flex-1 items-center justify-center">
           <div className="relative flex h-full w-full items-center justify-center">
             <div
               className="relative max-h-full max-w-full overflow-hidden rounded-xl border border-slate-800 bg-[#0B0F14] shadow-2xl"
-              style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}
+              style={{
+                aspectRatio: `${canvasWidth} / ${canvasHeight}`,
+                ...(hudTheme?.canvasBorderColor
+                  ? { borderColor: hudTheme.canvasBorderColor }
+                  : {}),
+              }}
             >
               <canvas
                 ref={canvasRef}
@@ -855,13 +1008,16 @@ export function GameBoard({
                     </p>
                     <h2 className="font-display mt-2 text-4xl font-bold text-white">
                       {gameState === 'VICTORY'
-                        ? `Nivel ${levelConfig.level} Completado`
+                        ? levelConfig.victoryCondition?.victoryTitle ??
+                          `Nivel ${levelConfig.level} Completado`
                         : 'Sitio-19 Comprometido'}
                     </h2>
                     <p className="mt-2 text-sm text-slate-300">
                       {gameState === 'VICTORY'
-                        ? levelConfig.rewardLabel || 'Sector asegurado sin brechas.'
-                        : 'Un SCP cruzó una fila sin puerta Tesla de emergencia disponible.'}
+                        ? levelConfig.victoryCondition?.victorySubtitle ??
+                          (levelConfig.rewardLabel || 'Sector asegurado sin brechas.')
+                        : hud.defeatReason ||
+                          'Un SCP cruzó una fila sin puerta Tesla de emergencia disponible.'}
                     </p>
 
                     <div className="mt-5 grid grid-cols-3 gap-3 border-y border-slate-800 py-4 text-center">
@@ -883,8 +1039,32 @@ export function GameBoard({
                       </div>
                     </div>
 
+                    {hud.objectives.length > 0 && (
+                      <div className="mt-4 max-h-32 space-y-1.5 overflow-y-auto rounded-lg border border-slate-800 bg-[#0E1217] p-3 text-left text-xs">
+                        {hud.objectives.map((obj) => (
+                          <div key={obj.def.id} className="flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-1.5 text-slate-200">
+                              {obj.status === 'completed' ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                              ) : (
+                                <XCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                              )}
+                              <span>{obj.def.description}</span>
+                            </span>
+                            <span
+                              className={`font-mono-num shrink-0 font-bold ${
+                                obj.status === 'completed' ? 'text-emerald-400' : 'text-red-400'
+                              }`}
+                            >
+                              {obj.status === 'completed' ? 'OK' : 'FALLO'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="mt-6 flex flex-wrap justify-center gap-3">
-                      {gameState === 'VICTORY' && levelConfig.level < LEVEL_CATALOG.length && (
+                      {gameState === 'VICTORY' && hasNextLevel && (
                         <button
                           type="button"
                           onClick={onSelectNextLevel}
@@ -897,7 +1077,7 @@ export function GameBoard({
                         type="button"
                         onClick={handleRestart}
                         className={`rounded-lg px-5 py-2.5 text-sm font-bold whitespace-nowrap transition-colors ${
-                          gameState === 'VICTORY' && levelConfig.level < LEVEL_CATALOG.length
+                          gameState === 'VICTORY' && hasNextLevel
                             ? 'border border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700'
                             : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
                         }`}
@@ -925,7 +1105,13 @@ export function GameBoard({
             Mazo activo: {deckDefs.length} unidades · SCP-966 (3x3) · SCP-066 (5x5 / Radio)
           </div>
 
-          <div className="ml-auto flex w-full max-w-sm items-center gap-3 rounded-xl border border-slate-800 bg-[#141A22] px-4 py-2 shadow-lg">
+          <div
+            className="ml-auto flex w-full max-w-sm items-center gap-3 rounded-xl border border-slate-800 bg-[#141A22] px-4 py-2 shadow-lg"
+            style={{
+              ...(hudTheme?.panelBg ? { backgroundColor: hudTheme.panelBg } : {}),
+              ...(hudTheme?.panelBorder ? { borderColor: hudTheme.panelBorder } : {}),
+            }}
+          >
             <div className="shrink-0 text-right">
               <div className="text-[11px] font-semibold text-slate-300">
                 {levelConfig.victoryCondition?.label ??
@@ -933,6 +1119,16 @@ export function GameBoard({
                     ? 'Supervivencia'
                     : levelConfig.victoryCondition?.mode === 'kill_count'
                     ? 'Eliminaciones'
+                    : levelConfig.victoryCondition?.mode === 'survive_and_kill'
+                    ? 'Supervivencia + Bajas'
+                    : levelConfig.victoryCondition?.mode === 'destroy_obstacles'
+                    ? 'Despejar Obstáculos'
+                    : levelConfig.victoryCondition?.mode === 'boss_hunt'
+                    ? 'Objetivo Prioritario'
+                    : levelConfig.victoryCondition?.mode === 'objectives_only'
+                    ? 'Objetivos'
+                    : levelConfig.victoryCondition?.mode === 'endless'
+                    ? `Ciclo ${hud.endlessCycle + 1}`
                     : 'Progreso')}
               </div>
               <div className="font-mono-num text-xs font-bold text-amber-400">

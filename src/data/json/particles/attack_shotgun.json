@@ -1,0 +1,62 @@
+{
+  "id": "attack_shotgun",
+  "name": "Cono de Escopeta",
+  "description": "Amplia nube de chispas y humo de pólvora al disparar perdigones.",
+  "category": "attack",
+  "emitters": [
+    {
+      "shape": "spark",
+      "colors": [
+        "#FBBF24",
+        "#F97316",
+        "#FEF08A"
+      ],
+      "count": 12,
+      "durationSec": [
+        0.14,
+        0.28
+      ],
+      "sizePx": [
+        2.5,
+        4.2
+      ],
+      "sizeEndScale": 0.15,
+      "speedPx": [
+        110,
+        220
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 68,
+      "drag": 4.2,
+      "offsetX": 22,
+      "blendMode": "lighter"
+    },
+    {
+      "shape": "smoke",
+      "colors": [
+        "rgba(148, 163, 184, 0.5)",
+        "rgba(203, 213, 225, 0.35)"
+      ],
+      "count": 5,
+      "durationSec": [
+        0.25,
+        0.42
+      ],
+      "sizePx": [
+        6,
+        10
+      ],
+      "sizeEndScale": 1.8,
+      "alphaStart": 0.45,
+      "alphaEnd": 0,
+      "speedPx": [
+        40,
+        85
+      ],
+      "angleDeg": 0,
+      "spreadDeg": 52,
+      "drag": 3.5,
+      "offsetX": 22
+    }
+  ]
+}

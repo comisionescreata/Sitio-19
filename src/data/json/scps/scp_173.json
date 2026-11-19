@@ -1,0 +1,26 @@
+{
+  "type": "scp_173",
+  "code": "SCP-173",
+  "name": "La Escultura",
+  "classification": "Euclid · Salto por Parpadeo",
+  "hp": 540,
+  "speed": 0,
+  "dps": 135,
+  "scoreValue": 120,
+  "portrait": "/src/assets/images/SCP-173.webp",
+  "summary": "Salta 2 casillas cada 4s con daño masivo. La pantalla parpadea cada 2s. Si SCP-106 está en su fila, se mueve cada 5s por la paranoia.",
+  "tacticalNote": "El Agente Criogénico reduce su salto a 1 casilla; remátalo con Tiradores MTF o Minas.",
+  "effects": [
+    "blink_173"
+  ],
+  "announcement": "SCP-173 en el tablero: parpadeo cada 2s y salto de 2 casillas cada 4s.",
+  "behavior": {
+    "laneSpan": 1,
+    "blinkJump": {
+      "effectId": "blink_173",
+      "paranoiaPartner": "scp_106",
+      "paranoiaIntervalSec": 5,
+      "paranoiaCells": 1
+    }
+  }
+}
