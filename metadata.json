@@ -1,6 +1,6 @@
 {
   "name": "Sitio-19",
-  "description": "",
+  "description": "Juego táctico tipo tower defense en tablero 9x6 donde despliegas personal y estructuras para contener brechas de SCP-008, SCP-966, SCP-939 y SCP-173.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -3,6 +3,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  Layers,
   Lock,
   Play,
   RotateCcw,
@@ -12,8 +13,11 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import {
+  CHARACTERS_CATALOG,
+  DIALOGUES_CATALOG,
   EFFECTS_CATALOG,
   ENEMY_CATALOG,
+  EVENTS_CATALOG,
   GAME_CONFIG,
   LEVEL_CATALOG,
   TOWER_CATALOG,
@@ -27,7 +31,12 @@ interface AdminModalProps {
   onLogout: () => void;
   freePlayAllUnlocked: boolean;
   onToggleFreePlay: () => void;
+  adminUnlockedUpTo: number | null;
+  onSetUnlockedUpTo: (levelNumber: number | null) => void;
+  adminUnlockAllTowers: boolean;
+  onToggleAllTowers: () => void;
   completedLevels: number[];
+  onCompleteUpToLevel: (levelNumber: number) => void;
   onCompleteAllLevels: () => void;
   onResetProgress: () => void;
   onJumpToLevel: (levelNumber: number) => void;
@@ -40,7 +49,12 @@ export function AdminModal({
   onLogout,
   freePlayAllUnlocked,
   onToggleFreePlay,
+  adminUnlockedUpTo,
+  onSetUnlockedUpTo,
+  adminUnlockAllTowers,
+  onToggleAllTowers,
   completedLevels,
+  onCompleteUpToLevel,
   onCompleteAllLevels,
   onResetProgress,
   onJumpToLevel,
@@ -49,7 +63,13 @@ export function AdminModal({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [targetUnlockLevel, setTargetUnlockLevel] = useState(
+    adminUnlockedUpTo ?? Math.min(LEVEL_CATALOG.length, Math.max(1, completedLevels.length + 1))
+  );
   const [jumpLevel, setJumpLevel] = useState(1);
+
+  const selectedLevelInfo =
+    LEVEL_CATALOG.find((l) => l.level === targetUnlockLevel) ?? LEVEL_CATALOG[0];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +99,7 @@ export function AdminModal({
                 Panel de Administrador
               </h2>
               <p className="text-xs text-slate-400">
-                Control de niveles, desbloqueos y acceso directo del Sitio-19
+                Control granular de desbloqueos, progreso y acceso directo del Sitio-19
               </p>
             </div>
           </div>
@@ -106,7 +126,7 @@ export function AdminModal({
                   Autenticación Requerida
                 </h3>
                 <p className="mt-1 text-xs text-slate-400">
-                  Introduce la contraseña de administrador para desbloquear todos los niveles.
+                  Introduce la contraseña de administrador para gestionar niveles y desbloqueos.
                 </p>
               </div>
 
@@ -160,39 +180,143 @@ export function AdminModal({
             </form>
           ) : (
             <div className="space-y-5">
-              {/* Unlock All Toggle & Progress Actions */}
+              {/* Unlock up to chosen level */}
+              <div className="rounded-xl border border-slate-800 bg-[#1A212B] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3 className="flex items-center gap-1.5 text-sm font-bold text-white">
+                      <Layers className="h-4 w-4 text-amber-400" />
+                      Desbloqueo Personalizado por Nivel
+                    </h3>
+                    <p className="mt-0.5 text-xs text-slate-400">
+                      Elige hasta qué nivel quieres desbloquear (1 al {LEVEL_CATALOG.length}) sin necesidad de liberar toda la campaña.
+                    </p>
+                  </div>
+                  {adminUnlockedUpTo !== null && !freePlayAllUnlocked && (
+                    <span className="font-mono-num rounded-md border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-300">
+                      Activo hasta Nv. {adminUnlockedUpTo}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <input
+                    type="range"
+                    min={1}
+                    max={LEVEL_CATALOG.length}
+                    value={targetUnlockLevel}
+                    onChange={(e) => setTargetUnlockLevel(Number(e.target.value))}
+                    className="h-2 flex-1 min-w-[140px] cursor-pointer accent-amber-500"
+                    aria-label="Seleccionar nivel máximo a desbloquear"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    max={LEVEL_CATALOG.length}
+                    value={targetUnlockLevel}
+                    onChange={(e) =>
+                      setTargetUnlockLevel(
+                        Math.max(1, Math.min(LEVEL_CATALOG.length, Number(e.target.value) || 1))
+                      )
+                    }
+                    className="font-mono-num w-20 rounded-lg border border-slate-700 bg-[#0E1217] px-2.5 py-1.5 text-center text-sm font-bold text-white focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+
+                {selectedLevelInfo && (
+                  <p className="mt-2 text-[11px] text-slate-300">
+                    <span className="font-semibold text-amber-300">
+                      Nivel {selectedLevelInfo.level}: {selectedLevelInfo.title}
+                    </span>
+                    {selectedLevelInfo.rewardLabel ? ` · ${selectedLevelInfo.rewardLabel}` : ''}
+                  </p>
+                )}
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSetUnlockedUpTo(targetUnlockLevel)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 transition-colors hover:bg-amber-400"
+                  >
+                    <Unlock className="h-3.5 w-3.5" />
+                    Desbloquear hasta Nivel {targetUnlockLevel}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onCompleteUpToLevel(targetUnlockLevel)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/25"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Completar Niveles 1–{targetUnlockLevel}
+                  </button>
+
+                  {(adminUnlockedUpTo !== null || freePlayAllUnlocked) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (freePlayAllUnlocked) onToggleFreePlay();
+                        onSetUnlockedUpTo(null);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-700"
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      Restaurar bloqueo normal
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Global Toggles & Progress Actions */}
               <div className="rounded-xl border border-slate-800 bg-[#1A212B] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-bold text-white">
-                      Desbloqueo Total de Campaña y Torres
+                      Modo Libre y Desbloqueo Rápido
                     </h3>
                     <p className="mt-0.5 text-xs text-slate-400">
-                      Habilita inmediatamente los {LEVEL_CATALOG.length} niveles y las{' '}
-                      {TOWER_CATALOG.length} torres disponibles.
+                      Libera los {LEVEL_CATALOG.length} niveles o habilita todas las{' '}
+                      {TOWER_CATALOG.length} torres de forma independiente.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={onToggleFreePlay}
-                    className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-xs font-bold whitespace-nowrap transition-colors ${
-                      freePlayAllUnlocked
-                        ? 'border-emerald-500 bg-emerald-500 text-slate-950 hover:bg-emerald-400'
-                        : 'border-amber-500 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
-                    }`}
-                  >
-                    {freePlayAllUnlocked ? (
-                      <>
-                        <Unlock className="h-3.5 w-3.5" />
-                        Todo Desbloqueado (Activo)
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="h-3.5 w-3.5" />
-                        Desbloquear Todos los Niveles
-                      </>
-                    )}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={onToggleAllTowers}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold whitespace-nowrap transition-colors ${
+                        adminUnlockAllTowers || freePlayAllUnlocked
+                          ? 'border-sky-400 bg-sky-500/20 text-sky-200 hover:bg-sky-500/30'
+                          : 'border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      <Unlock className="h-3.5 w-3.5" />
+                      {adminUnlockAllTowers || freePlayAllUnlocked
+                        ? 'Todas las Torres: ON'
+                        : 'Desbloquear Torres'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={onToggleFreePlay}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-bold whitespace-nowrap transition-colors ${
+                        freePlayAllUnlocked
+                          ? 'border-emerald-500 bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+                          : 'border-amber-500 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
+                      }`}
+                    >
+                      {freePlayAllUnlocked ? (
+                        <>
+                          <Unlock className="h-3.5 w-3.5" />
+                          Todo Desbloqueado (Activo)
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-3.5 w-3.5" />
+                          Desbloquear Todo
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-3">
@@ -220,7 +344,7 @@ export function AdminModal({
               <div className="rounded-xl border border-slate-800 bg-[#1A212B] p-4">
                 <h3 className="text-sm font-bold text-white">Salto Directo a Nivel</h3>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Inicia cualquier nivel del 1 al {LEVEL_CATALOG.length} para probar SCPs o torres.
+                  Desbloquea hasta el nivel elegido e inicia la partida para probar SCPs, torres o eventos.
                 </p>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -269,7 +393,7 @@ export function AdminModal({
               </div>
 
               {/* JSON Catalog Summary */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
                 <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-3 text-center">
                   <div className="font-mono-num text-lg font-bold text-white">
                     {LEVEL_CATALOG.length}
@@ -293,6 +417,24 @@ export function AdminModal({
                     {Object.keys(EFFECTS_CATALOG).length}
                   </div>
                   <div className="text-[11px] text-slate-400">Efectos JSON</div>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-3 text-center">
+                  <div className="font-mono-num text-lg font-bold text-white">
+                    {Object.keys(EVENTS_CATALOG).length}
+                  </div>
+                  <div className="text-[11px] text-slate-400">Eventos JSON</div>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-3 text-center">
+                  <div className="font-mono-num text-lg font-bold text-white">
+                    {Object.keys(CHARACTERS_CATALOG).length}
+                  </div>
+                  <div className="text-[11px] text-slate-400">Personajes</div>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-3 text-center">
+                  <div className="font-mono-num text-lg font-bold text-white">
+                    {Object.keys(DIALOGUES_CATALOG).length}
+                  </div>
+                  <div className="text-[11px] text-slate-400">Diálogos JSON</div>
                 </div>
               </div>
             </div>

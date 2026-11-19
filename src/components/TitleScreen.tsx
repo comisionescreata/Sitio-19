@@ -26,6 +26,7 @@ interface TitleScreenProps {
   completedLevels: number[];
   unlockedTowers: TowerType[];
   freePlayAllUnlocked: boolean;
+  adminUnlockedUpTo: number | null;
   adminAuthenticated: boolean;
   initialSelectedLevel: number;
   isFullscreen: boolean;
@@ -47,6 +48,7 @@ export function TitleScreen({
   completedLevels,
   unlockedTowers,
   freePlayAllUnlocked,
+  adminUnlockedUpTo,
   adminAuthenticated,
   initialSelectedLevel,
   isFullscreen,
@@ -69,7 +71,7 @@ export function TitleScreen({
   const highestCompleted = completedLevels.length > 0 ? Math.max(...completedLevels) : 0;
   const maxReachableLevel = freePlayAllUnlocked
     ? totalLevels
-    : Math.min(totalLevels, highestCompleted + 1);
+    : Math.min(totalLevels, Math.max(highestCompleted + 1, adminUnlockedUpTo ?? 0));
 
   const previewEnemies = selectedLevel.enemiesPresent
     .map((type) => ENEMY_CATALOG.find((e) => e.type === type))
@@ -114,13 +116,17 @@ export function TitleScreen({
             type="button"
             onClick={onOpenAdmin}
             className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
-              freePlayAllUnlocked || adminAuthenticated
+              freePlayAllUnlocked || adminUnlockedUpTo !== null || adminAuthenticated
                 ? 'border-emerald-500/70 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25'
                 : 'border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700'
             }`}
           >
             <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
-            {freePlayAllUnlocked ? 'Admin · Todo Libre' : 'Admin'}
+            {freePlayAllUnlocked
+              ? 'Admin · Todo Libre'
+              : adminUnlockedUpTo !== null
+              ? `Admin · Hasta Nv. ${adminUnlockedUpTo}`
+              : 'Admin'}
           </button>
 
           <button
@@ -152,7 +158,9 @@ export function TitleScreen({
               <div>
                 <p className="text-xs font-medium tracking-wider text-amber-400 tabular-nums">
                   Nivel {selectedLevel.level} de {totalLevels} ·{' '}
-                  {selectedLevel.level <= GAME_CONFIG.progression.autoDeckMaxLevel
+                  {selectedLevel.rules?.lockedDeck?.length
+                    ? 'Mazo fijo táctico'
+                    : selectedLevel.level <= GAME_CONFIG.progression.autoDeckMaxLevel
                     ? 'Mazo automático'
                     : `Elige hasta ${selectedLevel.maxDeckSlots} torres`}
                 </p>
@@ -173,6 +181,30 @@ export function TitleScreen({
                     {selectedLevel.flagMarkers.length}{' '}
                     {selectedLevel.flagMarkers.length === 1 ? 'Gran Horda' : 'Grandes Hordas'}
                   </span>
+                  {selectedLevel.disableTeslaGates && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span className="text-rose-300">Sin Tesla</span>
+                    </>
+                  )}
+                  {selectedLevel.victoryCondition?.mode === 'survive_time' &&
+                    selectedLevel.victoryCondition.targetSeconds && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span className="text-cyan-300">
+                          Sobrevivir {selectedLevel.victoryCondition.targetSeconds}s
+                        </span>
+                      </>
+                    )}
+                  {selectedLevel.victoryCondition?.mode === 'kill_count' &&
+                    selectedLevel.victoryCondition.targetKills && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span className="text-cyan-300">
+                          Contener {selectedLevel.victoryCondition.targetKills} SCP
+                        </span>
+                      </>
+                    )}
                   {selectedLevel.rewardLabel && (
                     <>
                       <span aria-hidden="true">·</span>

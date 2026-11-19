@@ -9,6 +9,9 @@ import {
   RawLevelConfig,
   TowerDefinition,
 } from '../types/game';
+import { CHARACTERS_CATALOG } from './charactersLoader';
+import { DIALOGUES_CATALOG } from './dialoguesLoader';
+import { EVENTS_CATALOG } from './eventsLoader';
 import configJson from './json/config.json';
 import designsJson from './json/designs.json';
 import effectsJson from './json/effects.json';
@@ -16,6 +19,7 @@ import levelsJson from './json/levels.json';
 import scpsJson from './json/scps.json';
 import towersJson from './json/towers.json';
 
+export { CHARACTERS_CATALOG, DIALOGUES_CATALOG, EVENTS_CATALOG };
 export const GAME_CONFIG = configJson as GameConfig;
 export const GRID_ROWS = GAME_CONFIG.grid.rows;
 export const GRID_COLS = GAME_CONFIG.grid.cols;

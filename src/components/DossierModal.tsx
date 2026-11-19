@@ -1,8 +1,11 @@
-import { SlidersHorizontal, X } from 'lucide-react';
+import { SlidersHorizontal, User, X } from 'lucide-react';
 import { useState } from 'react';
 import {
+  CHARACTERS_CATALOG,
+  DIALOGUES_CATALOG,
   EFFECTS_CATALOG,
   ENEMY_CATALOG,
+  EVENTS_CATALOG,
   GRID_COLS,
   GRID_ROWS,
   TOWER_CATALOG,
@@ -14,12 +17,18 @@ interface DossierModalProps {
 }
 
 export function DossierModal({ onClose }: DossierModalProps) {
-  const [tab, setTab] = useState<'enemies' | 'towers' | 'effects'>('enemies');
+  const [tab, setTab] = useState<
+    'enemies' | 'towers' | 'effects' | 'events' | 'characters' | 'dialogues'
+  >('enemies');
   const [effectEditorOpen, setEffectEditorOpen] = useState(false);
+  const [brokenCharPortraits, setBrokenCharPortraits] = useState<Record<string, boolean>>({});
 
   const personalTowers = TOWER_CATALOG.filter((t) => t.category === 'personal');
   const estructuraTowers = TOWER_CATALOG.filter((t) => t.category === 'estructura');
   const effectsList = Object.values(EFFECTS_CATALOG).filter((fx) => !fx.isTemplate);
+  const eventsList = Object.values(EVENTS_CATALOG);
+  const charactersList = Object.values(CHARACTERS_CATALOG);
+  const dialoguesList = Object.values(DIALOGUES_CATALOG);
 
   return (
     <div
@@ -78,6 +87,36 @@ export function DossierModal({ onClose }: DossierModalProps) {
             }`}
           >
             Efectos ({effectsList.length})
+          </button>
+          <button
+            onClick={() => setTab('events')}
+            className={`rounded-md px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+              tab === 'events'
+                ? 'bg-amber-500 text-slate-950'
+                : 'bg-slate-800/70 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            Eventos ({eventsList.length})
+          </button>
+          <button
+            onClick={() => setTab('characters')}
+            className={`rounded-md px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+              tab === 'characters'
+                ? 'bg-amber-500 text-slate-950'
+                : 'bg-slate-800/70 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            Personajes ({charactersList.length})
+          </button>
+          <button
+            onClick={() => setTab('dialogues')}
+            className={`rounded-md px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+              tab === 'dialogues'
+                ? 'bg-amber-500 text-slate-950'
+                : 'bg-slate-800/70 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            Diálogos ({dialoguesList.length})
           </button>
         </div>
 
@@ -236,6 +275,150 @@ export function DossierModal({ onClose }: DossierModalProps) {
                         </div>
                       </div>
                       <p className="mt-2 text-xs leading-relaxed text-slate-300">{fx.description}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'events' && (
+            <div className="space-y-4">
+              {eventsList.length === 0 ? (
+                <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-6 text-center">
+                  <p className="text-sm font-semibold text-slate-200">
+                    No hay eventos personalizados definidos todavía
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Edita <code className="text-amber-300">src/data/json/events.json</code> para definir eventos con lógica y visuales reutilizables desde <code className="text-amber-300">levels.json</code>. Consulta <code className="text-amber-300">JSON_DOCUMENTATION.md</code> para ver los ejemplos.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {eventsList.map((ev) => (
+                    <div
+                      key={ev.id}
+                      className="rounded-lg border border-slate-800 bg-[#1A212B] p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="truncate font-semibold text-slate-100">
+                          {ev.name ?? ev.id}
+                        </h4>
+                        <span className="font-mono-num text-[11px] font-semibold text-amber-400">
+                          {ev.trigger ?? 'manual'}
+                        </span>
+                      </div>
+                      <p className="font-mono-num mt-0.5 text-[10px] text-slate-400">
+                        id: {ev.id}
+                      </p>
+                      {ev.description && (
+                        <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                          {ev.description}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'characters' && (
+            <div className="space-y-4">
+              {charactersList.length === 0 ? (
+                <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-6 text-center">
+                  <p className="text-sm font-semibold text-slate-200">
+                    No hay personajes definidos todavía
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Añade personajes en <code className="text-amber-300">src/data/json/characters.json</code> con retratos PNG y múltiples expresiones (<code className="text-amber-300">expressions</code>). Consulta <code className="text-amber-300">JSON_DOCUMENTATION.md</code>.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {charactersList.map((ch) => {
+                    const exprKeys = Object.keys(ch.expressions ?? {});
+                    const previewSrc =
+                      ch.expressions?.[ch.defaultExpression ?? 'neutral'] ?? ch.defaultPortrait;
+                    return (
+                      <article
+                        key={ch.id}
+                        className="flex gap-4 rounded-lg border border-slate-800 bg-[#1A212B] p-4"
+                      >
+                        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-700 bg-slate-900">
+                          {previewSrc && !brokenCharPortraits[ch.id] ? (
+                            <img
+                              src={previewSrc}
+                              alt={ch.name}
+                              referrerPolicy="no-referrer"
+                              onError={() =>
+                                setBrokenCharPortraits((prev) => ({ ...prev, [ch.id]: true }))
+                              }
+                              className="h-full w-full object-contain"
+                            />
+                          ) : (
+                            <User className="h-8 w-8 text-slate-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4
+                            className="font-display text-lg font-bold"
+                            style={{ color: ch.accentColor ?? '#F8FAFC' }}
+                          >
+                            {ch.name}
+                          </h4>
+                          <p className="text-xs text-slate-400">
+                            {[ch.title ?? ch.role, ch.faction].filter(Boolean).join(' · ') || `id: ${ch.id}`}
+                          </p>
+                          {ch.description && (
+                            <p className="mt-1.5 text-xs text-slate-300">{ch.description}</p>
+                          )}
+                          {exprKeys.length > 0 && (
+                            <p className="mt-1.5 text-[11px] text-amber-300/90">
+                              Expresiones: {exprKeys.join(' · ')}
+                            </p>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'dialogues' && (
+            <div className="space-y-4">
+              {dialoguesList.length === 0 ? (
+                <div className="rounded-lg border border-slate-800 bg-[#1A212B] p-6 text-center">
+                  <p className="text-sm font-semibold text-slate-200">
+                    No hay diálogos definidos todavía
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Define conversaciones en <code className="text-amber-300">src/data/json/dialogues.json</code> o usa <code className="text-amber-300">inlineDialogues</code> en <code className="text-amber-300">levels.json</code> y eventos. Consulta <code className="text-amber-300">JSON_DOCUMENTATION.md</code>.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {dialoguesList.map((dlg) => (
+                    <div
+                      key={dlg.id}
+                      className="rounded-lg border border-slate-800 bg-[#1A212B] p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="truncate font-semibold text-slate-100">
+                          {dlg.title ?? dlg.id}
+                        </h4>
+                        <span className="font-mono-num text-[11px] font-semibold text-amber-400">
+                          {dlg.lines.length} líneas
+                        </span>
+                      </div>
+                      <p className="font-mono-num mt-0.5 text-[10px] text-slate-400">
+                        id: {dlg.id}
+                      </p>
+                      {dlg.description && (
+                        <p className="mt-2 text-xs text-slate-300">{dlg.description}</p>
+                      )}
                     </div>
                   ))}
                 </div>

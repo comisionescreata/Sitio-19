@@ -1,3 +1,4 @@
+import { EVENTS_CATALOG } from '../data/eventsLoader';
 import configJson from '../data/json/config.json';
 import scpsJson from '../data/json/scps.json';
 import towersJson from '../data/json/towers.json';
@@ -7,7 +8,9 @@ import {
   GameConfig,
   LevelConfig,
   LevelEvent,
+  LevelEventDefinition,
   RawLevelConfig,
+  RawLevelEvent,
   ResolvedSpawnTarget,
   TowerDefinition,
 } from '../types/game';
@@ -22,6 +25,31 @@ function clampRow(r: number, gridRows: number): number {
 
 function getEnemyDef(type: EnemyType): EnemyDefinition | undefined {
   return ENEMIES.find((e) => e.type === type);
+}
+
+export function resolveSpawnTargetsForSpec(
+  type: EnemyType,
+  row: number | [number, number] | undefined,
+  rows: Array<number | [number, number]> | undefined,
+  count: number | undefined,
+  gridRows: number
+): ResolvedSpawnTarget[] {
+  const def = getEnemyDef(type);
+  const laneSpan = def?.behavior?.laneSpan ?? 1;
+
+  if (rows && rows.length > 0) {
+    return rows.map((entry) => toTarget(entry, laneSpan, gridRows));
+  }
+  if (row !== undefined) {
+    const base = toTarget(row, laneSpan, gridRows);
+    const total = count ?? 1;
+    return Array.from({ length: total }, () => ({
+      row: base.row,
+      occupiedRows: [...base.occupiedRows],
+    }));
+  }
+  const defaultCount = def?.behavior?.defaultPackCount ?? 1;
+  return pickRandomTargets(type, count ?? defaultCount, gridRows);
 }
 
 function toTarget(
@@ -80,16 +108,65 @@ function pickRandomTargets(
   return targets;
 }
 
+function collectSpawnsFromEventDef(
+  evDef: Partial<LevelEventDefinition> | undefined,
+  enemySet: Set<EnemyType>
+) {
+  if (!evDef?.logic) return;
+  for (const sp of evDef.logic.spawns ?? []) {
+    if (sp.type) enemySet.add(sp.type as EnemyType);
+  }
+  for (const sp of evDef.logic.spawnFromObstacles?.types ?? []) {
+    if (sp.type) enemySet.add(sp.type as EnemyType);
+  }
+  for (const ob of evDef.logic.spawnObstacles ?? []) {
+    if (ob.spawnOnDestroy?.type) enemySet.add(ob.spawnOnDestroy.type as EnemyType);
+  }
+  for (const mut of evDef.logic.mutateEnemies ?? []) {
+    if (mut.transformToType) enemySet.add(mut.transformToType as EnemyType);
+  }
+}
+
+function expandEventTimestamps(events: RawLevelEvent[]): Array<{ absTime: number; raw: RawLevelEvent }> {
+  let absCursor = 0;
+  const expanded: Array<{ absTime: number; raw: RawLevelEvent }> = [];
+
+  for (const ev of events) {
+    let baseTime: number;
+    if (ev.absoluteTime !== undefined) {
+      baseTime = Math.max(0, ev.absoluteTime);
+      absCursor = Math.max(absCursor, baseTime);
+    } else {
+      absCursor += Math.max(0, ev.time ?? 0);
+      baseTime = absCursor;
+    }
+
+    const repeatTimes = Math.max(1, ev.repeat?.times ?? 1);
+    const repeatInterval = Math.max(0.1, ev.repeat?.intervalSec ?? 5);
+
+    for (let r = 0; r < repeatTimes; r++) {
+      const t = baseTime + r * repeatInterval;
+      expanded.push({
+        absTime: t,
+        raw: r === 0 ? ev : { ...ev, isFlagHorde: false, hordeLabel: undefined },
+      });
+    }
+  }
+
+  expanded.sort((a, b) => a.absTime - b.absTime);
+  return expanded;
+}
+
 /**
  * Compiles raw customizable level JSON into normalized LevelConfig metadata:
- * - Accumulates relative `time` delays into absolute timestamps
+ * - Accumulates relative `time` delays (or `absoluteTime` + `repeat`) into absolute timestamps
  * - Auto-calculates `durationSeconds` if omitted
  * - Auto-calculates `flagMarkers` from `isFlagHorde` events if omitted
- * - Auto-derives `enemiesPresent` from wave events if omitted
- * - Enforces tower-only rewards (no passive bonuses)
+ * - Auto-derives `enemiesPresent` from wave events, startingEnemies, obstacles, and events.json spawns
+ * - Merges `obstacles` and `tombstones` shorthand
+ * - Preserves dialogues (`introDialogueId`, `victoryDialogueId`, `defeatDialogueId`, `inlineDialogues`)
  */
 export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
-  let absTime = 0;
   const flagTimes: number[] = [];
   const enemySet = new Set<EnemyType>(raw.enemiesPresent ?? []);
 
@@ -98,17 +175,50 @@ export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
   const gridRows = Math.max(1, Math.min(20, Math.round(rawRows)));
   const gridCols = Math.max(3, Math.min(24, Math.round(rawCols)));
 
-  for (const ev of raw.events) {
-    absTime += Math.max(0, ev.time);
+  const mergedObstacles = [
+    ...(raw.obstacles ?? []),
+    ...(raw.tombstones ?? []).map((t) => ({ kind: 'tombstone' as const, ...t })),
+  ];
+
+  const expanded = expandEventTimestamps(raw.events);
+  let maxTime = 0;
+
+  if (!raw.enemiesPresent) {
+    for (const se of raw.startingEnemies ?? []) {
+      if (se.type) enemySet.add(se.type as EnemyType);
+    }
+    for (const ob of mergedObstacles) {
+      if (ob.spawnOnDestroy?.type) enemySet.add(ob.spawnOnDestroy.type as EnemyType);
+    }
+    for (const le of raw.levelEvents ?? []) {
+      if (typeof le === 'string') {
+        collectSpawnsFromEventDef(EVENTS_CATALOG[le], enemySet);
+      } else {
+        if (le.eventId) collectSpawnsFromEventDef(EVENTS_CATALOG[le.eventId], enemySet);
+        collectSpawnsFromEventDef(le, enemySet);
+      }
+    }
+  }
+
+  for (const { absTime, raw: ev } of expanded) {
+    if (absTime > maxTime) maxTime = absTime;
     if (!raw.enemiesPresent) {
-      enemySet.add(ev.type);
+      if (ev.type) enemySet.add(ev.type);
+      if (ev.eventId) collectSpawnsFromEventDef(EVENTS_CATALOG[ev.eventId], enemySet);
+      collectSpawnsFromEventDef(ev.eventOverrides, enemySet);
+      collectSpawnsFromEventDef(ev.event, enemySet);
     }
     if (ev.isFlagHorde) {
       flagTimes.push(absTime);
     }
   }
 
-  const durationSeconds = raw.durationSeconds ?? Math.max(45, Math.ceil(absTime + 12));
+  const surviveTarget =
+    raw.victoryCondition?.mode === 'survive_time' && raw.victoryCondition.targetSeconds
+      ? raw.victoryCondition.targetSeconds
+      : 0;
+  const durationSeconds =
+    raw.durationSeconds ?? Math.max(45, surviveTarget, Math.ceil(maxTime + 12));
 
   const flagMarkers =
     raw.flagMarkers && raw.flagMarkers.length > 0
@@ -122,7 +232,12 @@ export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
     : TOWERS.find((t) => t.unlockLevel === raw.level);
 
   const unlockTower = matchedTower?.type;
-  const rewardLabel = matchedTower ? `Desbloquea: ${matchedTower.name}` : null;
+  const rewardLabel =
+    raw.rewardLabel !== undefined
+      ? raw.rewardLabel
+      : matchedTower
+      ? `Desbloquea: ${matchedTower.name}`
+      : null;
 
   return {
     level: raw.level,
@@ -133,9 +248,25 @@ export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
     gridRows,
     gridCols,
     boardOverride: raw.boardOverride,
+    environment: raw.environment,
+    rules: raw.rules,
     disableTeslaGates: raw.disableTeslaGates,
     autoCollectEnergy: raw.autoCollectEnergy,
     skyEnergy: raw.skyEnergy,
+    blockedCells: raw.blockedCells,
+    tileModifiers: raw.tileModifiers,
+    tileOverrides: raw.tileOverrides,
+    obstacles: mergedObstacles.length > 0 ? mergedObstacles : undefined,
+    startingTowers: raw.startingTowers,
+    startingEnemies: raw.startingEnemies,
+    startingDoors079: raw.startingDoors079,
+    globalEffects: raw.globalEffects,
+    levelEvents: raw.levelEvents,
+    introDialogueId: raw.introDialogueId,
+    victoryDialogueId: raw.victoryDialogueId,
+    defeatDialogueId: raw.defeatDialogueId,
+    inlineDialogues: raw.inlineDialogues,
+    victoryCondition: raw.victoryCondition,
     enemiesPresent: Array.from(enemySet),
     durationSeconds,
     flagMarkers,
@@ -147,47 +278,42 @@ export function compileLevelMetadata(raw: RawLevelConfig): LevelConfig {
 
 /**
  * Resolves a LevelConfig at match start:
- * - Accumulates relative `time` delays (seconds since previous wave) into absolute spawn times
+ * - Accumulates relative `time` delays (or `absoluteTime` + `repeat`) into absolute spawn times
  * - Resolves omitted `row`/`rows` randomly on each playthrough within level's gridRows
- * - Supports 2-lane tuples `[x1, x2]` (e.g. SCP-682)
+ * - Supports 2-lane tuples `[x1, x2]` (e.g. SCP-682) and optional `type` for event-only entries
  */
 export function resolveMatchTimeline(
   levelConfig: LevelConfig,
   gridRows = levelConfig.gridRows ?? GAME_CONFIG.grid.rows
 ): LevelEvent[] {
-  let absTime = 0;
-  return levelConfig.rawEvents.map((ev) => {
-    absTime += Math.max(0, ev.time);
-    const def = getEnemyDef(ev.type);
-    const laneSpan = def?.behavior?.laneSpan ?? 1;
+  const expanded = expandEventTimestamps(levelConfig.rawEvents);
 
-    let targets: ResolvedSpawnTarget[];
-    if (ev.rows && ev.rows.length > 0) {
-      targets = ev.rows.map((entry) => toTarget(entry, laneSpan, gridRows));
-    } else if (ev.row !== undefined) {
-      const base = toTarget(ev.row, laneSpan, gridRows);
-      const count = ev.count ?? 1;
-      targets = Array.from({ length: count }, () => ({
-        row: base.row,
-        occupiedRows: [...base.occupiedRows],
-      }));
-    } else {
-      const defaultCount = def?.behavior?.defaultPackCount ?? 1;
-      const count = ev.count ?? defaultCount;
-      targets = pickRandomTargets(ev.type, count, gridRows);
-    }
+  return expanded.map(({ absTime, raw: ev }) => {
+    const targets = ev.type
+      ? resolveSpawnTargetsForSpec(ev.type, ev.row, ev.rows, ev.count, gridRows)
+      : [];
 
     return {
       time: absTime,
       type: ev.type,
       targets,
+      col: ev.col,
+      staggerSec: ev.staggerSec,
       isFlagHorde: ev.isFlagHorde,
       hordeLabel: ev.hordeLabel,
       hpMultiplier: ev.hpMultiplier,
       speedMultiplier: ev.speedMultiplier,
       dpsMultiplier: ev.dpsMultiplier,
       extraEffects: ev.extraEffects,
+      immunities: ev.immunities,
+      eliteBadge: ev.eliteBadge,
+      eliteColor: ev.eliteColor,
       announcement: ev.announcement,
+      dialogueId: ev.dialogueId,
+      inlineDialogue: ev.inlineDialogue,
+      eventId: ev.eventId,
+      eventOverrides: ev.eventOverrides,
+      event: ev.event,
     };
   });
 }

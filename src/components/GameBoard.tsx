@@ -16,11 +16,13 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  DIALOGUES_CATALOG,
   ENEMY_CATALOG,
   GAME_CONFIG,
   LEVEL_CATALOG,
   TOWER_CATALOG,
 } from '../data/scpCatalog';
+import { CustomBannerState } from '../engine/eventRunner';
 import {
   getCanvasDimensions,
   pxToCell,
@@ -30,13 +32,17 @@ import {
   canPlaceTowerAt,
   collectEnergyDropInSim,
   createInitialSim,
+  getEffectiveTowerCooldown,
+  getEffectiveTowerCost,
+  notifyDialogueCompletedInSim,
   placeTowerInSim,
   removeTowerInSim,
   SimState,
   stepSimulation,
 } from '../engine/simulation';
-import { GameState, LevelConfig, TowerType } from '../types/game';
+import { DialogueDefinition, GameState, LevelConfig, TowerType } from '../types/game';
 import { soundEngine } from '../utils/sound';
+import { DialogueCompletionResult, DialogueOverlay } from './DialogueOverlay';
 
 interface GameBoardProps {
   levelConfig: LevelConfig;
@@ -76,14 +82,33 @@ export function GameBoard({
     activeDeck.includes('guard') ? 'guard' : activeDeck[0] ?? null
   );
   const [hoverCell, setHoverCell] = useState<{ row: number; col: number } | null>(null);
+  const [activeDialogue, setActiveDialogue] = useState<{
+    def: DialogueDefinition;
+    mode: 'intro' | 'mid' | 'victory' | 'defeat';
+  } | null>(() => {
+    const id = levelConfig.introDialogueId;
+    if (!id) return null;
+    const def = levelConfig.inlineDialogues?.[id] ?? DIALOGUES_CATALOG[id];
+    return def ? { def, mode: 'intro' } : null;
+  });
 
-  const [hud, setHud] = useState({
+  const [hud, setHud] = useState<{
+    energy: number;
+    progress: number;
+    kills: number;
+    towersDeployed: number;
+    announcement: string;
+    flagBanner: string;
+    customBanner: CustomBannerState | null;
+    cooldowns: Record<TowerType, number>;
+  }>({
     energy: levelConfig.startingEnergy,
     progress: 0,
     kills: 0,
     towersDeployed: 0,
     announcement: `Nivel ${levelConfig.level}: ${levelConfig.title}.`,
     flagBanner: '',
+    customBanner: null,
     cooldowns: { ...simRef.current.cooldowns },
   });
 
@@ -108,14 +133,36 @@ export function GameBoard({
   const onLevelCompleteRef = useRef(onLevelComplete);
   onLevelCompleteRef.current = onLevelComplete;
 
+  const activeDialogueRef = useRef(activeDialogue);
+  activeDialogueRef.current = activeDialogue;
+
+  const resolveDialogueDef = useCallback(
+    (dialogueId?: string, inlineDialogue?: DialogueDefinition): DialogueDefinition | null => {
+      if (inlineDialogue) return inlineDialogue;
+      if (!dialogueId) return null;
+      return levelConfigRef.current.inlineDialogues?.[dialogueId] ?? DIALOGUES_CATALOG[dialogueId] ?? null;
+    },
+    []
+  );
+
   const syncHud = useCallback(() => {
     const s = simRef.current;
     const cfg = levelConfigRef.current;
-    const allSpawned = s.spawnedIndices.size >= s.timeline.length;
-    const rawProgress =
-      allSpawned && s.enemies.length === 0
-        ? 1
-        : Math.min(0.99, s.levelTimer / Math.max(1, cfg.durationSeconds));
+    const vc = cfg.victoryCondition;
+    let rawProgress = 0;
+
+    if (vc?.mode === 'survive_time' && vc.targetSeconds && vc.targetSeconds > 0) {
+      rawProgress = Math.min(1, s.levelTimer / vc.targetSeconds);
+    } else if (vc?.mode === 'kill_count' && vc.targetKills && vc.targetKills > 0) {
+      rawProgress = Math.min(1, s.kills / vc.targetKills);
+    } else {
+      const allSpawned =
+        s.spawnedIndices.size >= s.timeline.length && s.pendingStaggeredSpawns.length === 0;
+      rawProgress =
+        allSpawned && s.enemies.length === 0
+          ? 1
+          : Math.min(0.99, s.levelTimer / Math.max(1, cfg.durationSeconds));
+    }
 
     setHud({
       energy: s.energy,
@@ -124,6 +171,7 @@ export function GameBoard({
       towersDeployed: s.towersDeployed,
       announcement: s.announcementTimer > 0 ? s.announcement : '',
       flagBanner: s.flagBannerTimer > 0 ? s.flagBanner : '',
+      customBanner: s.customBanner && s.customBanner.remaining > 0 ? { ...s.customBanner } : null,
       cooldowns: { ...s.cooldowns },
     });
   }, []);
@@ -136,17 +184,57 @@ export function GameBoard({
       prevLevelRef.current = levelConfig.level;
       simRef.current = createInitialSim(levelConfig);
       setSelectedTool(activeDeck.includes('guard') ? 'guard' : activeDeck[0] ?? null);
+      const introDef = resolveDialogueDef(levelConfig.introDialogueId);
+      setActiveDialogue(introDef ? { def: introDef, mode: 'intro' } : null);
       setGameState('PLAYING');
       syncHudRef.current();
     }
-  }, [levelConfig, activeDeck]);
+  }, [levelConfig, activeDeck, resolveDialogueDef]);
 
   const handleRestart = useCallback(() => {
     simRef.current = createInitialSim(levelConfigRef.current);
     setSelectedTool(activeDeck.includes('guard') ? 'guard' : activeDeck[0] ?? null);
+    const introDef = resolveDialogueDef(levelConfigRef.current.introDialogueId);
+    setActiveDialogue(introDef ? { def: introDef, mode: 'intro' } : null);
     setGameState('PLAYING');
     syncHudRef.current();
-  }, [activeDeck]);
+  }, [activeDeck, resolveDialogueDef]);
+
+  const handleDialogueLineTrigger = useCallback((triggerEventId?: string, energyDelta?: number) => {
+    notifyDialogueCompletedInSim(simRef.current, undefined, triggerEventId, energyDelta);
+    syncHudRef.current();
+  }, []);
+
+  const handleDialogueComplete = useCallback(
+    (result?: DialogueCompletionResult) => {
+      const current = activeDialogueRef.current;
+      if (!current) return;
+      notifyDialogueCompletedInSim(
+        simRef.current,
+        current.def.id,
+        result?.triggerEventId,
+        result?.energyDelta
+      );
+      if (result?.nextDialogueId) {
+        const nextDef = resolveDialogueDef(result.nextDialogueId);
+        if (nextDef) {
+          setActiveDialogue({ def: nextDef, mode: current.mode });
+          syncHudRef.current();
+          return;
+        }
+      }
+      setActiveDialogue(null);
+      if (current.mode === 'victory') {
+        gameStateRef.current = 'VICTORY';
+        setGameState('VICTORY');
+      } else if (current.mode === 'defeat') {
+        gameStateRef.current = 'GAME_OVER';
+        setGameState('GAME_OVER');
+      }
+      syncHudRef.current();
+    },
+    [resolveDialogueDef]
+  );
 
   const toggleMute = useCallback(() => {
     setMuted((prev) => {
@@ -160,7 +248,7 @@ export function GameBoard({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (dossierOpenRef.current) return;
+      if (dossierOpenRef.current || activeDialogueRef.current) return;
       if (e.key >= '1' && e.key <= '9') {
         const idx = Number(e.key) - 1;
         if (deckDefs[idx]) {
@@ -195,22 +283,64 @@ export function GameBoard({
       const rawDt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
       lastTime = now;
 
-      const isPlaying = gameStateRef.current === 'PLAYING' && !dossierOpenRef.current;
+      const dialoguePaused =
+        activeDialogueRef.current !== null && activeDialogueRef.current.def.pauseGame !== false;
+      const isPlaying =
+        gameStateRef.current === 'PLAYING' && !dossierOpenRef.current && !dialoguePaused;
+
+      if (!activeDialogueRef.current && simRef.current.pendingDialogues.length > 0) {
+        const nextEntry = simRef.current.pendingDialogues.shift()!;
+        const def = resolveDialogueDef(nextEntry.dialogueId, nextEntry.inlineDialogue);
+        if (def) {
+          const nextDlg = { def, mode: 'mid' as const };
+          activeDialogueRef.current = nextDlg;
+          setActiveDialogue(nextDlg);
+        }
+      }
+
       if (isPlaying) {
         const mult = speedMultiplierRef.current;
         for (let i = 0; i < mult; i++) {
           if (gameStateRef.current !== 'PLAYING') break;
+          if (activeDialogueRef.current && activeDialogueRef.current.def.pauseGame !== false) break;
           const outcome = stepSimulation(simRef.current, rawDt);
+          if (!activeDialogueRef.current && simRef.current.pendingDialogues.length > 0) {
+            const nextEntry = simRef.current.pendingDialogues.shift()!;
+            const def = resolveDialogueDef(nextEntry.dialogueId, nextEntry.inlineDialogue);
+            if (def) {
+              const nextDlg = { def, mode: 'mid' as const };
+              activeDialogueRef.current = nextDlg;
+              setActiveDialogue(nextDlg);
+              if (def.pauseGame !== false) {
+                syncHudRef.current();
+                break;
+              }
+            }
+          }
           if (outcome === 'VICTORY') {
             onLevelCompleteRef.current(levelConfigRef.current.level);
-            gameStateRef.current = 'VICTORY';
-            setGameState('VICTORY');
+            const vicDef = resolveDialogueDef(levelConfigRef.current.victoryDialogueId);
+            if (vicDef) {
+              const vicDlg = { def: vicDef, mode: 'victory' as const };
+              activeDialogueRef.current = vicDlg;
+              setActiveDialogue(vicDlg);
+            } else {
+              gameStateRef.current = 'VICTORY';
+              setGameState('VICTORY');
+            }
             syncHudRef.current();
             break;
           }
           if (outcome === 'GAME_OVER') {
-            gameStateRef.current = 'GAME_OVER';
-            setGameState('GAME_OVER');
+            const defDef = resolveDialogueDef(levelConfigRef.current.defeatDialogueId);
+            if (defDef) {
+              const defDlg = { def: defDef, mode: 'defeat' as const };
+              activeDialogueRef.current = defDlg;
+              setActiveDialogue(defDlg);
+            } else {
+              gameStateRef.current = 'GAME_OVER';
+              setGameState('GAME_OVER');
+            }
             syncHudRef.current();
             break;
           }
@@ -226,10 +356,13 @@ export function GameBoard({
           const hover = hoverCellRef.current;
           const selectedDef =
             tool && tool !== 'remove' ? TOWER_CATALOG.find((t) => t.type === tool) : null;
+          const selectedCost = selectedDef
+            ? getEffectiveTowerCost(selectedDef.type, s.rules)
+            : 0;
           const canAfford = selectedDef
-            ? hover
-              ? canPlaceTowerAt(s, selectedDef.type, hover.row, hover.col)
-              : s.energy >= selectedDef.cost && s.cooldowns[selectedDef.type] <= 0
+            ? s.energy >= selectedCost &&
+              s.cooldowns[selectedDef.type] <= 0 &&
+              (hover ? canPlaceTowerAt(s, selectedDef.type, hover.row, hover.col) : true)
             : false;
           const hasActive049 = s.enemies.some((e) => e.type === 'scp_049' && e.hp > 0);
 
@@ -237,6 +370,18 @@ export function GameBoard({
             gridRows: s.gridRows,
             gridCols: s.gridCols,
             boardOverride: s.boardOverride,
+            blockedCells: s.blockedCells,
+            tileModifiers: s.tileModifiers,
+            tileOverrides: s.tileOverrides,
+            obstacles: s.obstacles,
+            environment: s.environment,
+            shakeIntensity: s.shakeIntensity,
+            shakeTimer: s.shakeTimer,
+            flashRgb: s.flashRgb,
+            flashAlpha: s.flashAlpha,
+            screenTints: s.activeScreenTints,
+            weather: s.activeWeather,
+            laneHighlights: s.activeLaneHighlights,
             towers: s.towers,
             enemies: s.enemies,
             doors079: s.doors079,
@@ -292,7 +437,7 @@ export function GameBoard({
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (gameState !== 'PLAYING' || dossierOpen) return;
+    if (gameState !== 'PLAYING' || dossierOpen || activeDialogue) return;
     const coords = getLogicalCoords(e);
     if (!coords) return;
 
@@ -464,11 +609,13 @@ export function GameBoard({
                   {personalCards.map((card) => {
                     keyCounter += 1;
                     const shortcut = keyCounter === 10 ? 0 : keyCounter;
+                    const effectiveCost = getEffectiveTowerCost(card.type, levelConfig.rules);
+                    const effectiveCd = getEffectiveTowerCooldown(card.type, levelConfig.rules);
                     const cd = hud.cooldowns[card.type] ?? 0;
-                    const affordable = hud.energy >= card.cost;
+                    const affordable = hud.energy >= effectiveCost;
                     const ready = affordable && cd <= 0;
                     const selected = selectedTool === card.type;
-                    const cdPercent = Math.min(100, (cd / Math.max(0.1, card.cooldown)) * 100);
+                    const cdPercent = Math.min(100, (cd / Math.max(0.1, effectiveCd)) * 100);
 
                     return (
                       <button
@@ -507,7 +654,7 @@ export function GameBoard({
                               affordable ? 'text-amber-400' : 'text-red-400'
                             }`}
                           >
-                            {cd > 0 ? `${cd.toFixed(1)}s` : card.cost}
+                            {cd > 0 ? `${cd.toFixed(1)}s` : effectiveCost}
                           </span>
                         </div>
                       </button>
@@ -524,11 +671,13 @@ export function GameBoard({
                   {estructuraCards.map((card) => {
                     keyCounter += 1;
                     const shortcut = keyCounter === 10 ? 0 : keyCounter;
+                    const effectiveCost = getEffectiveTowerCost(card.type, levelConfig.rules);
+                    const effectiveCd = getEffectiveTowerCooldown(card.type, levelConfig.rules);
                     const cd = hud.cooldowns[card.type] ?? 0;
-                    const affordable = hud.energy >= card.cost;
+                    const affordable = hud.energy >= effectiveCost;
                     const ready = affordable && cd <= 0;
                     const selected = selectedTool === card.type;
-                    const cdPercent = Math.min(100, (cd / Math.max(0.1, card.cooldown)) * 100);
+                    const cdPercent = Math.min(100, (cd / Math.max(0.1, effectiveCd)) * 100);
 
                     return (
                       <button
@@ -567,7 +716,7 @@ export function GameBoard({
                               affordable ? 'text-amber-400' : 'text-red-400'
                             }`}
                           >
-                            {cd > 0 ? `${cd.toFixed(1)}s` : card.cost}
+                            {cd > 0 ? `${cd.toFixed(1)}s` : effectiveCost}
                           </span>
                         </div>
                       </button>
@@ -631,8 +780,42 @@ export function GameBoard({
                 </div>
               )}
 
+              {/* Custom Scripted Event Banner */}
+              {hud.customBanner && !hud.flagBanner && (
+                <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center px-4">
+                  <div
+                    className={`flex items-center gap-2.5 rounded-lg border px-5 py-2 shadow-xl ${
+                      hud.customBanner.style === 'danger' || hud.customBanner.style === 'horde'
+                        ? 'border-red-500/80 bg-red-950/90 text-red-100'
+                        : hud.customBanner.style === 'warning'
+                        ? 'border-amber-500/80 bg-amber-950/90 text-amber-100'
+                        : 'border-sky-500/80 bg-slate-900/90 text-sky-100'
+                    }`}
+                    style={{
+                      ...(hud.customBanner.borderColor
+                        ? { borderColor: hud.customBanner.borderColor }
+                        : {}),
+                      ...(hud.customBanner.color ? { color: hud.customBanner.color } : {}),
+                    }}
+                  >
+                    <span className="font-display text-lg font-bold tracking-wide">
+                      {hud.customBanner.text}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Visual Novel Dialogue Overlay */}
+              {activeDialogue && !dossierOpen && (
+                <DialogueOverlay
+                  dialogue={activeDialogue.def}
+                  onComplete={handleDialogueComplete}
+                  onLineTrigger={handleDialogueLineTrigger}
+                />
+              )}
+
               {/* Pause Overlay */}
-              {gameState === 'PAUSED' && !dossierOpen && (
+              {gameState === 'PAUSED' && !dossierOpen && !activeDialogue && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/65 backdrop-blur-xs">
                   <div className="rounded-xl border border-slate-700 bg-[#141A22] px-8 py-6 text-center shadow-2xl">
                     <h2 className="font-display text-3xl font-bold text-white">Partida en Pausa</h2>
@@ -744,7 +927,14 @@ export function GameBoard({
 
           <div className="ml-auto flex w-full max-w-sm items-center gap-3 rounded-xl border border-slate-800 bg-[#141A22] px-4 py-2 shadow-lg">
             <div className="shrink-0 text-right">
-              <div className="text-[11px] font-semibold text-slate-300">Progreso</div>
+              <div className="text-[11px] font-semibold text-slate-300">
+                {levelConfig.victoryCondition?.label ??
+                  (levelConfig.victoryCondition?.mode === 'survive_time'
+                    ? 'Supervivencia'
+                    : levelConfig.victoryCondition?.mode === 'kill_count'
+                    ? 'Eliminaciones'
+                    : 'Progreso')}
+              </div>
               <div className="font-mono-num text-xs font-bold text-amber-400">
                 {Math.round(hud.progress * 100)}%
               </div>

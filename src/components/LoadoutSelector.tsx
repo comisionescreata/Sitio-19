@@ -1,6 +1,7 @@
 import { ArrowLeft, Maximize2, Minimize2, Play, Shield, ShieldAlert, UserCheck } from 'lucide-react';
 import { useState } from 'react';
 import { ENEMY_CATALOG, GAME_CONFIG, TOWER_CATALOG } from '../data/scpCatalog';
+import { getEffectiveTowerCost } from '../engine/simulation';
 import { LevelConfig, TowerType } from '../types/game';
 
 interface LoadoutSelectorProps {
@@ -22,12 +23,21 @@ export function LoadoutSelector({
   onBack,
   onConfirmDeck,
 }: LoadoutSelectorProps) {
-  // Default pre-selected loadout up to maxSlots, ensuring researcher + guard + key counters if unlocked
+  const bannedSet = new Set(levelConfig.rules?.bannedTowers ?? []);
+
+  // Default pre-selected loadout up to maxSlots, ensuring researcher + guard + key counters if unlocked & allowed
   const buildDefaultDeck = (): TowerType[] => {
     const picked: TowerType[] = [];
     for (const t of GAME_CONFIG.progression.defaultDeckPriority) {
-      if (unlockedTowers.includes(t) && picked.length < maxSlots) {
+      if (unlockedTowers.includes(t) && !bannedSet.has(t) && picked.length < maxSlots) {
         picked.push(t);
+      }
+    }
+    if (picked.length === 0) {
+      for (const t of unlockedTowers) {
+        if (!bannedSet.has(t) && picked.length < maxSlots) {
+          picked.push(t);
+        }
       }
     }
     return picked;
@@ -36,6 +46,7 @@ export function LoadoutSelector({
   const [selectedDeck, setSelectedDeck] = useState<TowerType[]>(buildDefaultDeck);
 
   const toggleTower = (type: TowerType) => {
+    if (bannedSet.has(type)) return;
     setSelectedDeck((prev) => {
       if (prev.includes(type)) {
         return prev.filter((t) => t !== type);
@@ -157,16 +168,18 @@ export function LoadoutSelector({
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
                 {personalList.map((tower) => {
                   const unlocked = unlockedTowers.includes(tower.type);
+                  const banned = bannedSet.has(tower.type);
                   const chosen = selectedDeck.includes(tower.type);
                   const full = selectedDeck.length >= maxSlots && !chosen;
+                  const effectiveCost = getEffectiveTowerCost(tower.type, levelConfig.rules);
 
                   return (
                     <button
                       key={tower.type}
-                      disabled={!unlocked || full}
+                      disabled={!unlocked || banned || full}
                       onClick={() => toggleTower(tower.type)}
                       className={`flex flex-col justify-between rounded-lg border p-3 text-left transition-colors ${
-                        !unlocked
+                        !unlocked || banned
                           ? 'border-slate-800/70 bg-[#10141B] opacity-45'
                           : chosen
                           ? 'border-amber-400 bg-amber-500/15 ring-1 ring-amber-400/70'
@@ -179,11 +192,15 @@ export function LoadoutSelector({
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-bold text-white">{tower.name}</span>
                           <span className="font-mono-num text-xs font-bold text-amber-400">
-                            {tower.cost}
+                            {effectiveCost}
                           </span>
                         </div>
                         <div className="mt-0.5 text-[11px] text-slate-400">
-                          {unlocked ? tower.roleLabel : `Desbloqueo: Nivel ${tower.unlockLevel}`}
+                          {banned
+                            ? 'Vetada en este nivel'
+                            : unlocked
+                            ? tower.roleLabel
+                            : `Desbloqueo: Nivel ${tower.unlockLevel}`}
                         </div>
                       </div>
                       <p className="mt-2 text-[11px] leading-snug text-slate-300">
@@ -204,16 +221,18 @@ export function LoadoutSelector({
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
                 {estructuraList.map((tower) => {
                   const unlocked = unlockedTowers.includes(tower.type);
+                  const banned = bannedSet.has(tower.type);
                   const chosen = selectedDeck.includes(tower.type);
                   const full = selectedDeck.length >= maxSlots && !chosen;
+                  const effectiveCost = getEffectiveTowerCost(tower.type, levelConfig.rules);
 
                   return (
                     <button
                       key={tower.type}
-                      disabled={!unlocked || full}
+                      disabled={!unlocked || banned || full}
                       onClick={() => toggleTower(tower.type)}
                       className={`flex flex-col justify-between rounded-lg border p-3 text-left transition-colors ${
-                        !unlocked
+                        !unlocked || banned
                           ? 'border-slate-800/70 bg-[#10141B] opacity-45'
                           : chosen
                           ? 'border-amber-400 bg-amber-500/15 ring-1 ring-amber-400/70'
@@ -226,11 +245,15 @@ export function LoadoutSelector({
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-bold text-white">{tower.name}</span>
                           <span className="font-mono-num text-xs font-bold text-amber-400">
-                            {tower.cost}
+                            {effectiveCost}
                           </span>
                         </div>
                         <div className="mt-0.5 text-[11px] text-slate-400">
-                          {unlocked ? tower.roleLabel : `Desbloqueo: Nivel ${tower.unlockLevel}`}
+                          {banned
+                            ? 'Vetada en este nivel'
+                            : unlocked
+                            ? tower.roleLabel
+                            : `Desbloqueo: Nivel ${tower.unlockLevel}`}
                         </div>
                       </div>
                       <p className="mt-2 text-[11px] leading-snug text-slate-300">

@@ -9,7 +9,9 @@ import {
 } from '../data/scpCatalog';
 import { getDeclarativeEffects } from './effectRunner';
 import {
+  BlockedCellConfig,
   BoardDesignConfig,
+  BoardObstacle,
   CustomShapeCondition,
   CustomShapeLayer,
   Door079,
@@ -17,14 +19,23 @@ import {
   Enemy,
   EnemyDesignConfig,
   EnergyDrop,
+  LevelEnvironmentConfig,
   Projectile,
   ProjectileDesignConfig,
   SpriteRenderMode,
+  TileModifierConfig,
+  TileModifierKind,
+  TileOverrideConfig,
   Tower,
   TowerDesignConfig,
   TowerType,
   VisualEffect,
 } from '../types/game';
+import type {
+  ActiveLaneHighlight,
+  ActiveScreenTint,
+  ActiveWeatherState,
+} from './eventRunner';
 
 const FALLBACK_TOWER_DESIGN: TowerDesignConfig = {
   shape: 'guard',
@@ -89,6 +100,18 @@ export interface RenderState {
   gridRows?: number;
   gridCols?: number;
   boardOverride?: Partial<BoardDesignConfig>;
+  blockedCells?: BlockedCellConfig[];
+  tileModifiers?: TileModifierConfig[];
+  tileOverrides?: TileOverrideConfig[];
+  obstacles?: BoardObstacle[];
+  environment?: LevelEnvironmentConfig;
+  shakeIntensity?: number;
+  shakeTimer?: number;
+  flashRgb?: string;
+  flashAlpha?: number;
+  screenTints?: ActiveScreenTint[];
+  weather?: ActiveWeatherState | null;
+  laneHighlights?: ActiveLaneHighlight[];
   towers: Tower[];
   enemies: Enemy[];
   doors079: Door079[];
@@ -417,6 +440,15 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
   ctx.fillStyle = board.canvasBg;
   ctx.fillRect(0, 0, canvasW, canvasH);
 
+  const hasShake = (state.shakeTimer ?? 0) > 0 && (state.shakeIntensity ?? 0) > 0;
+  ctx.save();
+  if (hasShake) {
+    const mag = state.shakeIntensity ?? 0;
+    const sx = (Math.random() - 0.5) * 2 * mag;
+    const sy = (Math.random() - 0.5) * 2 * mag;
+    ctx.translate(sx, sy);
+  }
+
   const bgImg = getCachedImage(board.bgImage);
   if (bgImg) {
     ctx.save();
@@ -488,6 +520,26 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
     ctx.fillRect(breachX, y, stripeW, stripeH);
   }
 
+  // Custom Per-Tile Visual Overrides (color, sprite, label)
+  if (state.tileOverrides && state.tileOverrides.length > 0) {
+    drawTileOverrides(ctx, state.tileOverrides, gridRows, gridCols);
+  }
+
+  // Tile Modifiers (heal, buffs, traps, projectile coatings, energy, shields)
+  if (state.tileModifiers && state.tileModifiers.length > 0) {
+    drawTileModifiers(ctx, state.tileModifiers, gridRows, gridCols, state.time);
+  }
+
+  // Blocked Cells (hazard zones where towers cannot be placed)
+  if (state.blockedCells && state.blockedCells.length > 0) {
+    drawBlockedCells(ctx, state.blockedCells, gridRows, gridCols);
+  }
+
+  // Scripted Lane / Cell Highlights
+  if (state.laneHighlights && state.laneHighlights.length > 0) {
+    drawLaneHighlights(ctx, state.laneHighlights, gridRows, gridCols, state.time);
+  }
+
   // Radio Anti-Hypnosis & Anti-066 Aura
   const radioRadius = EFFECTS_CATALOG.radio_3x3?.radiusCells ?? 1;
   for (const tower of state.towers) {
@@ -507,7 +559,17 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
       const pulse = 0.12 + 0.05 * Math.sin(state.time * (fx.visual.zonePulseSpeed ?? 4.5));
       const fill = fx.visual.zoneRgb ? `rgba(${fx.visual.zoneRgb}, ${pulse})` : zones.medicFill;
       const stroke = fx.visual.zoneStroke ?? fx.color;
-      drawRadiusZone(ctx, tower.row, tower.col, rad, fill, stroke, gridRows, gridCols);
+      drawRadiusZone(
+        ctx,
+        tower.row,
+        tower.col,
+        rad,
+        fill,
+        stroke,
+        gridRows,
+        gridCols,
+        fx.visual.zoneShape
+      );
     }
   }
 
@@ -516,6 +578,18 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
     const { row, col } = state.hoverCell;
     const { x, y } = cellToPx(row, col);
     const existing = state.towers.find((t) => t.row === row && t.col === col);
+    const blockingOb = state.obstacles?.find(
+      (o) => o.row === row && o.col === col && o.blocksPlacement
+    );
+    const canCounterClearOb =
+      blockingOb &&
+      state.selectedTool !== 'remove' &&
+      blockingOb.allowCounterPlacement &&
+      blockingOb.destructible &&
+      blockingOb.counterTowerTypes?.includes(state.selectedTool);
+    const isBlocked =
+      Boolean(state.blockedCells?.some((b) => b.row === row && b.col === col)) ||
+      (Boolean(blockingOb) && !canCounterClearOb);
     const hoverInset = zones.hoverInset ?? 2;
     const hoverLineW = zones.hoverLineWidth ?? 2;
 
@@ -526,32 +600,41 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
       ctx.lineWidth = hoverLineW;
       ctx.strokeRect(x + hoverInset, y + hoverInset, cellSize - hoverInset * 2, cellSize - hoverInset * 2);
     } else {
-      if (
-        (state.selectedTool === 'radio' ||
+      if (!existing && !isBlocked) {
+        if (
+          state.selectedTool === 'radio' ||
           state.selectedTool === 'medic' ||
           state.selectedTool === 'engineer' ||
-          state.selectedTool === 'tesla_coil') &&
-        !existing
-      ) {
-        const hoverRad =
-          state.selectedTool === 'radio'
-            ? radioRadius
-            : state.selectedTool === 'medic' || state.selectedTool === 'engineer'
-            ? EFFECTS_CATALOG.heal_pulse?.radiusCells ?? 1
-            : 1;
-        drawRadiusZone(
-          ctx,
-          row,
-          col,
-          hoverRad,
-          state.selectedTool === 'tesla_coil' ? zones.teslaFill : zones.medicFill,
-          state.selectedTool === 'tesla_coil' ? zones.teslaStroke : zones.medicStroke,
-          gridRows,
-          gridCols
-        );
+          state.selectedTool === 'tesla_coil'
+        ) {
+          const hoverRad =
+            state.selectedTool === 'radio'
+              ? radioRadius
+              : state.selectedTool === 'medic' || state.selectedTool === 'engineer'
+              ? EFFECTS_CATALOG.heal_pulse?.radiusCells ?? 1
+              : 1;
+          drawRadiusZone(
+            ctx,
+            row,
+            col,
+            hoverRad,
+            state.selectedTool === 'tesla_coil' ? zones.teslaFill : zones.medicFill,
+            state.selectedTool === 'tesla_coil' ? zones.teslaStroke : zones.medicStroke,
+            gridRows,
+            gridCols
+          );
+        }
+        const hoverDef = TOWER_CATALOG.find((t) => t.type === state.selectedTool);
+        for (const fx of getDeclarativeEffects(hoverDef?.effects)) {
+          if (!fx.visual?.showZone) continue;
+          const rad = fx.radiusCells ?? 1;
+          const fill = fx.visual.zoneRgb ? `rgba(${fx.visual.zoneRgb}, 0.14)` : zones.medicFill;
+          const stroke = fx.visual.zoneStroke ?? fx.color;
+          drawRadiusZone(ctx, row, col, rad, fill, stroke, gridRows, gridCols, fx.visual.zoneShape);
+        }
       }
 
-      const valid = !existing && state.canAffordSelected;
+      const valid = !existing && !isBlocked && state.canAffordSelected;
       ctx.fillStyle = valid ? zones.hoverValidFill : zones.hoverInvalidFill;
       ctx.fillRect(x + hoverInset, y + hoverInset, cellSize - hoverInset * 2, cellSize - hoverInset * 2);
       ctx.strokeStyle = valid ? zones.hoverValidStroke : zones.hoverInvalidStroke;
@@ -601,7 +684,7 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
       const pulse = 0.13 + 0.06 * Math.sin(state.time * (fx.visual.zonePulseSpeed ?? 5));
       const fill = fx.visual.zoneRgb ? `rgba(${fx.visual.zoneRgb}, ${pulse})` : 'rgba(163, 230, 53, 0.14)';
       const stroke = fx.visual.zoneStroke ?? fx.color;
-      drawRadiusZone(ctx, enemy.row, centerCol, rad, fill, stroke, gridRows, gridCols);
+      drawRadiusZone(ctx, enemy.row, centerCol, rad, fill, stroke, gridRows, gridCols, fx.visual.zoneShape);
     }
   }
 
@@ -612,6 +695,14 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
   // SCP-079 Containment Doors
   for (const door of state.doors079) {
     drawDoor079(ctx, door, state.time);
+  }
+
+  // Board Obstacles & PvZ-style Tombstones
+  if (state.obstacles && state.obstacles.length > 0) {
+    const sortedObstacles = [...state.obstacles].sort((a, b) => a.row - b.row || a.col - b.col);
+    for (const ob of sortedObstacles) {
+      drawObstacle(ctx, ob, state.time);
+    }
   }
 
   for (const tower of state.towers) {
@@ -643,10 +734,539 @@ export function renderBoard(ctx: CanvasRenderingContext2D, state: RenderState) {
     drawEnergyDrop(ctx, drop, state.time);
   }
 
+  ctx.restore(); // End board shake transform
+
+  // Atmosphere: Weather Particles (environment or event-driven)
+  if (state.weather && state.weather.kind !== 'none') {
+    drawWeatherParticles(ctx, state.weather, canvasW, canvasH, state.time);
+  }
+
+  // Atmosphere: Level environment tint & alert vignette
+  if (state.environment) {
+    drawEnvironmentOverlay(ctx, state.environment, canvasW, canvasH, state.time);
+  }
+
+  // Event-driven Screen Tints
+  if (state.screenTints && state.screenTints.length > 0) {
+    for (const tint of state.screenTints) {
+      const fade = Number.isFinite(tint.remaining) ? Math.min(1, tint.remaining / 0.6) : 1;
+      const pulse = tint.pulseSpeed
+        ? 0.65 + 0.35 * Math.sin(state.time * tint.pulseSpeed)
+        : 1;
+      ctx.save();
+      ctx.fillStyle = resolvePulseColor(tint.rgb, tint.alpha * fade * pulse, '239, 68, 68');
+      ctx.fillRect(0, 0, canvasW, canvasH);
+      ctx.restore();
+    }
+  }
+
+  // Screen Flash (from events or effects)
+  if ((state.flashAlpha ?? 0) > 0.01) {
+    ctx.save();
+    ctx.fillStyle = resolvePulseColor(state.flashRgb, Math.min(0.85, state.flashAlpha ?? 0), '255, 255, 255');
+    ctx.fillRect(0, 0, canvasW, canvasH);
+    ctx.restore();
+  }
+
   if (state.blinkAlpha > 0.01) {
     ctx.save();
     ctx.fillStyle = `rgba(${board.blinkOverlayRgb}, ${Math.min(board.blinkMaxAlpha ?? 0.92, state.blinkAlpha)})`;
     ctx.fillRect(0, 0, canvasW, canvasH);
+    ctx.restore();
+  }
+}
+
+const TILE_MODIFIER_STYLE: Record<
+  TileModifierKind,
+  { rgb: string; stroke: string; shortLabel: string }
+> = {
+  heal: { rgb: '16, 185, 129', stroke: '#34D399', shortLabel: '+HP' },
+  damage_tower: { rgb: '239, 68, 68', stroke: '#F87171', shortLabel: 'TÓXICO' },
+  damage_enemy: { rgb: '249, 115, 22', stroke: '#FB923C', shortLabel: 'QUEMA' },
+  boost_fire: { rgb: '245, 158, 11', stroke: '#FBBF24', shortLabel: '+CAD' },
+  boost_damage: { rgb: '244, 63, 94', stroke: '#FB7185', shortLabel: '+DMG' },
+  slow_enemy: { rgb: '6, 182, 212', stroke: '#22D3EE', shortLabel: 'CRIO' },
+  energy: { rgb: '234, 179, 8', stroke: '#FACC15', shortLabel: '+EN' },
+  shield: { rgb: '56, 189, 248', stroke: '#38BDF8', shortLabel: 'ESC.' },
+  ignite_projectiles: { rgb: '234, 88, 12', stroke: '#FB923C', shortLabel: 'FUEGO' },
+  chill_projectiles: { rgb: '34, 211, 238', stroke: '#67E8F9', shortLabel: 'HIELO' },
+  pierce_projectiles: { rgb: '168, 85, 247', stroke: '#C084FC', shortLabel: 'PERF.' },
+  boost_projectile_damage: { rgb: '225, 29, 72', stroke: '#FDA4AF', shortLabel: '+BALA' },
+  speed_enemy: { rgb: '220, 38, 38', stroke: '#F87171', shortLabel: 'ACEL.' },
+  heal_enemy: { rgb: '132, 204, 22', stroke: '#A3E635', shortLabel: '+SCP' },
+  regen_barrier: { rgb: '20, 184, 166', stroke: '#2DD4BF', shortLabel: 'MURO+' },
+  block_enemy_spawn: { rgb: '99, 102, 241', stroke: '#818CF8', shortLabel: 'SELLO' },
+  apply_effect: { rgb: '217, 70, 239', stroke: '#E879F9', shortLabel: 'AURA' },
+};
+
+function drawTileOverrides(
+  ctx: CanvasRenderingContext2D,
+  overrides: TileOverrideConfig[],
+  gridRows: number,
+  gridCols: number
+) {
+  const { cellSize } = BOARD_LAYOUT;
+  for (const ov of overrides) {
+    const rows =
+      ov.rows && ov.rows.length > 0
+        ? ov.rows
+        : ov.row !== undefined
+        ? [ov.row]
+        : Array.from({ length: gridRows }, (_, r) => r);
+    const cols =
+      ov.cols && ov.cols.length > 0
+        ? ov.cols
+        : ov.col !== undefined
+        ? [ov.col]
+        : Array.from({ length: gridCols }, (_, c) => c);
+    const spriteImg = getCachedImage(ov.sprite);
+
+    for (const r of rows) {
+      if (r < 0 || r >= gridRows) continue;
+      for (const c of cols) {
+        if (c < 0 || c >= gridCols) continue;
+        const { x, y } = cellToPx(r, c);
+        ctx.save();
+        if (ov.color) {
+          ctx.globalAlpha = ov.opacity ?? 1;
+          ctx.fillStyle = ov.color;
+          ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+        }
+        if (spriteImg) {
+          ctx.globalAlpha = ov.spriteOpacity ?? 0.92;
+          ctx.drawImage(spriteImg, x + 2, y + 2, cellSize - 4, cellSize - 4);
+        }
+        if (ov.strokeColor) {
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = ov.strokeColor;
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(x + 1.5, y + 1.5, cellSize - 3, cellSize - 3);
+        }
+        if (ov.label) {
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = ov.labelColor ?? '#CBD5E1';
+          ctx.font = 'bold 8px "JetBrains Mono", monospace';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText(ov.label, x + 5, y + 5);
+        }
+        ctx.restore();
+      }
+    }
+  }
+}
+
+function drawTileModifiers(
+  ctx: CanvasRenderingContext2D,
+  modifiers: TileModifierConfig[],
+  gridRows: number,
+  gridCols: number,
+  time: number
+) {
+  const { cellSize } = BOARD_LAYOUT;
+  const pulse = 0.14 + 0.05 * Math.sin(time * 3.5);
+  for (const mod of modifiers) {
+    const st = TILE_MODIFIER_STYLE[mod.kind] ?? TILE_MODIFIER_STYLE.heal;
+    const rows =
+      mod.rows && mod.rows.length > 0
+        ? mod.rows
+        : mod.row !== undefined
+        ? [mod.row]
+        : Array.from({ length: gridRows }, (_, r) => r);
+    const cols =
+      mod.cols && mod.cols.length > 0
+        ? mod.cols
+        : mod.col !== undefined
+        ? [mod.col]
+        : Array.from({ length: gridCols }, (_, c) => c);
+    const spriteImg = getCachedImage(mod.sprite);
+    const fadeFactor =
+      mod.remaining !== undefined && mod.remaining < 1.2
+        ? Math.max(0.25, mod.remaining / 1.2)
+        : 1;
+
+    for (const r of rows) {
+      if (r < 0 || r >= gridRows) continue;
+      for (const c of cols) {
+        if (c < 0 || c >= gridCols) continue;
+        const { x, y } = cellToPx(r, c);
+        ctx.save();
+        ctx.globalAlpha *= (mod.opacity ?? 1) * fadeFactor;
+        ctx.fillStyle = mod.color ? mod.color : `rgba(${st.rgb}, ${pulse})`;
+        ctx.fillRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+        if (spriteImg) {
+          ctx.drawImage(spriteImg, x + 4, y + 4, cellSize - 8, cellSize - 8);
+        }
+        ctx.strokeStyle = mod.strokeColor ?? st.stroke;
+        ctx.lineWidth = 1.25;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(x + 3, y + 3, cellSize - 6, cellSize - 6);
+        ctx.setLineDash([]);
+
+        const lbl = mod.label ?? st.shortLabel;
+        if (lbl) {
+          ctx.fillStyle = mod.strokeColor ?? st.stroke;
+          ctx.font = 'bold 8px "JetBrains Mono", monospace';
+          ctx.textAlign = 'right';
+          ctx.fillText(lbl, x + cellSize - 5, y + cellSize - 5);
+        }
+        ctx.restore();
+      }
+    }
+  }
+}
+
+function drawObstacle(ctx: CanvasRenderingContext2D, ob: BoardObstacle, time: number) {
+  const { cellSize } = BOARD_LAYOUT;
+  const { x, y } = cellToPx(ob.row, ob.col);
+  const cx = x + cellSize / 2;
+  const cy = y + cellSize / 2;
+  const hpRatio = Math.max(0, Math.min(1, ob.hp / Math.max(1, ob.maxHp)));
+  const isDamaged = hpRatio < 0.65;
+  const isCracked = hpRatio <= 0.5;
+  const spriteSrc = isCracked && ob.crackedSprite ? ob.crackedSprite : ob.sprite;
+  const spriteImg = getCachedImage(spriteSrc);
+  const wRatio = ob.widthRatio ?? 0.78;
+  const hRatio = ob.heightRatio ?? 0.82;
+
+  ctx.save();
+
+  // Ground shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+  ctx.beginPath();
+  ctx.ellipse(cx, y + cellSize - 10, cellSize * 0.32, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (ob.canSpawnEnemies && ob.kind === 'tombstone') {
+    const mistAlpha = 0.14 + 0.08 * Math.sin(time * 3 + ob.row + ob.col);
+    ctx.fillStyle = `rgba(34, 197, 94, ${mistAlpha})`;
+    ctx.beginPath();
+    ctx.ellipse(cx, y + cellSize - 11, cellSize * 0.36, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (spriteImg) {
+    drawSpriteAt(ctx, spriteImg, cx, cy, cellSize * wRatio, cellSize * hRatio);
+  } else if (ob.kind === 'tombstone') {
+    const bodyFill = isCracked
+      ? ob.crackedColor ?? '#334155'
+      : ob.color ?? '#475569';
+    const strokeCol = ob.strokeColor ?? '#0F172A';
+
+    // Base plinth
+    ctx.fillStyle = '#1E293B';
+    roundRect(ctx, cx - 22, y + cellSize - 20, 44, 10, 3);
+    ctx.fill();
+    ctx.strokeStyle = strokeCol;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Tombstone arch slab
+    ctx.fillStyle = bodyFill;
+    ctx.beginPath();
+    ctx.moveTo(cx - 17, y + cellSize - 19);
+    ctx.lineTo(cx - 17, cy - 4);
+    ctx.arc(cx, cy - 4, 17, Math.PI, 0);
+    ctx.lineTo(cx + 17, y + cellSize - 19);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = strokeCol;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Engraved mark
+    ctx.strokeStyle = '#94A3B8';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 11);
+    ctx.lineTo(cx, cy + 5);
+    ctx.moveTo(cx - 6, cy - 5);
+    ctx.lineTo(cx + 6, cy - 5);
+    ctx.stroke();
+
+    if (isDamaged) {
+      ctx.strokeStyle = '#0F172A';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(cx - 10, cy - 12);
+      ctx.lineTo(cx - 3, cy - 2);
+      ctx.lineTo(cx - 8, cy + 8);
+      if (isCracked) {
+        ctx.moveTo(cx + 11, cy - 8);
+        ctx.lineTo(cx + 4, cy + 3);
+        ctx.lineTo(cx + 10, cy + 12);
+      }
+      ctx.stroke();
+    }
+  } else if (ob.kind === 'barricade') {
+    ctx.fillStyle = ob.color ?? '#334155';
+    roundRect(ctx, cx - 22, cy - 18, 44, 38, 5);
+    ctx.fill();
+    ctx.strokeStyle = ob.strokeColor ?? '#F59E0B';
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#F59E0B';
+    ctx.fillRect(cx - 18, cy - 5, 36, 8);
+    ctx.fillStyle = '#0F172A';
+    for (let sx = -14; sx <= 10; sx += 12) {
+      ctx.fillRect(cx + sx, cy - 5, 6, 8);
+    }
+  } else if (ob.kind === 'anomaly_node') {
+    const pulse = 0.45 + 0.35 * Math.sin(time * 4.5 + ob.col);
+    ctx.fillStyle = `rgba(168, 85, 247, ${pulse * 0.35})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = ob.color ?? '#7E22CE';
+    ctx.strokeStyle = ob.strokeColor ?? '#E879F9';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 22);
+    ctx.lineTo(cx + 17, cy);
+    ctx.lineTo(cx, cy + 22);
+    ctx.lineTo(cx - 17, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = ob.color ?? '#475569';
+    roundRect(ctx, cx - 20, cy - 14, 40, 32, 6);
+    ctx.fill();
+    ctx.strokeStyle = ob.strokeColor ?? '#1E293B';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  if (ob.hitFlash > 0) {
+    ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(0.6, ob.hitFlash * 0.55)})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (ob.label) {
+    ctx.fillStyle = '#E2E8F0';
+    ctx.font = 'bold 8px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(ob.label, cx, y + cellSize - 5);
+  }
+
+  if (ob.destructible && ob.hp < ob.maxHp) {
+    const ui = DESIGN_CATALOG.ui;
+    const barW = 42;
+    const barH = 4;
+    ctx.fillStyle = ui.hpBarBg;
+    ctx.fillRect(cx - barW / 2, y + 6, barW, barH);
+    ctx.fillStyle = hpRatio > 0.5 ? ui.hpBarHigh : hpRatio > 0.25 ? ui.hpBarMid : ui.hpBarLow;
+    ctx.fillRect(cx - barW / 2, y + 6, barW * hpRatio, barH);
+  }
+
+  ctx.restore();
+}
+
+function drawBlockedCells(
+  ctx: CanvasRenderingContext2D,
+  blockedCells: BlockedCellConfig[],
+  gridRows: number,
+  gridCols: number
+) {
+  const { cellSize } = BOARD_LAYOUT;
+  for (const cell of blockedCells) {
+    if (cell.row < 0 || cell.row >= gridRows || cell.col < 0 || cell.col >= gridCols) continue;
+    const { x, y } = cellToPx(cell.row, cell.col);
+    ctx.save();
+    ctx.fillStyle = cell.color ?? 'rgba(15, 23, 42, 0.78)';
+    ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+
+    ctx.beginPath();
+    ctx.rect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+    ctx.lineWidth = 3;
+    for (let offset = -cellSize; offset < cellSize * 2; offset += 14) {
+      ctx.beginPath();
+      ctx.moveTo(x + offset, y);
+      ctx.lineTo(x + offset - cellSize, y + cellSize);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.75)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+    ctx.fillStyle = '#FCA5A5';
+    ctx.font = 'bold 9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(cell.label ?? 'BLOQ.', x + cellSize / 2, y + cellSize / 2);
+    ctx.restore();
+  }
+}
+
+function drawLaneHighlights(
+  ctx: CanvasRenderingContext2D,
+  highlights: ActiveLaneHighlight[],
+  gridRows: number,
+  gridCols: number,
+  time: number
+) {
+  const { cellSize, gateWidth, padTop } = BOARD_LAYOUT;
+  for (const hl of highlights) {
+    const pulse = 0.55 + 0.45 * Math.sin(time * (hl.pulseSpeed ?? 5));
+    const fade = Math.min(1, hl.remaining / 0.45);
+    const rows =
+      hl.rows && hl.rows.length > 0
+        ? hl.rows.filter((r) => r >= 0 && r < gridRows)
+        : Array.from({ length: gridRows }, (_, r) => r);
+    const cols =
+      hl.cols && hl.cols.length > 0
+        ? hl.cols.filter((c) => c >= 0 && c < gridCols)
+        : null;
+
+    ctx.save();
+    ctx.globalAlpha = pulse * fade;
+    if (cols) {
+      for (const r of rows) {
+        for (const c of cols) {
+          const { x, y } = cellToPx(r, c);
+          ctx.fillStyle = hl.color;
+          ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+          if (hl.strokeColor) {
+            ctx.strokeStyle = hl.strokeColor;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+          }
+        }
+      }
+    } else {
+      for (const r of rows) {
+        const y = padTop + r * cellSize;
+        const w = gridCols * cellSize;
+        ctx.fillStyle = hl.color;
+        ctx.fillRect(gateWidth, y + 1, w, cellSize - 2);
+        if (hl.strokeColor) {
+          ctx.strokeStyle = hl.strokeColor;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(gateWidth + 1, y + 2, w - 2, cellSize - 4);
+        }
+        if (hl.label) {
+          ctx.fillStyle = hl.strokeColor ?? '#FCA5A5';
+          ctx.font = 'bold 11px "JetBrains Mono", monospace';
+          ctx.textAlign = 'right';
+          ctx.fillText(hl.label, gateWidth + w - 12, y + cellSize / 2 + 4);
+        }
+      }
+    }
+    ctx.restore();
+  }
+}
+
+function drawWeatherParticles(
+  ctx: CanvasRenderingContext2D,
+  weather: ActiveWeatherState,
+  canvasW: number,
+  canvasH: number,
+  time: number
+) {
+  const count = Math.min(90, Math.max(8, weather.density ?? 36));
+  const spd = weather.speed ?? 1;
+  const fade = Number.isFinite(weather.remaining) ? Math.min(1, weather.remaining / 0.8) : 1;
+
+  ctx.save();
+  ctx.globalAlpha *= fade;
+
+  if (weather.kind === 'static') {
+    ctx.fillStyle = weather.color ?? 'rgba(74, 222, 128, 0.24)';
+    for (let i = 0; i < count; i++) {
+      const sy = ((Math.sin(i * 19.3 + time * 14 * spd) * 0.5 + 0.5) * canvasH) | 0;
+      const w = 16 + ((i * 37) % 120);
+      const sx = ((Math.cos(i * 7.1 + time * 9) * 0.5 + 0.5) * canvasW) | 0;
+      ctx.fillRect(sx, sy, w, 1.5);
+    }
+    ctx.restore();
+    return;
+  }
+
+  for (let i = 0; i < count; i++) {
+    const seedA = Math.sin(i * 12.9898) * 43758.5453;
+    const randX = seedA - Math.floor(seedA);
+    const seedB = Math.sin(i * 78.233) * 43758.5453;
+    const randY = seedB - Math.floor(seedB);
+
+    if (weather.kind === 'rain') {
+      const y = ((randY * canvasH + time * 320 * spd) % (canvasH + 30)) - 15;
+      const x = ((randX * canvasW - time * 75 * spd) % canvasW + canvasW) % canvasW;
+      ctx.strokeStyle = weather.color ?? 'rgba(125, 211, 252, 0.38)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 4, y + 12);
+      ctx.stroke();
+    } else if (weather.kind === 'embers' || weather.kind === 'sparks') {
+      const rise = weather.kind === 'embers' ? -68 : -110;
+      const y = ((randY * canvasH + time * rise * spd) % canvasH + canvasH) % canvasH;
+      const x =
+        ((randX * canvasW + Math.sin(time * 2.5 + i) * 24) % canvasW + canvasW) % canvasW;
+      ctx.fillStyle =
+        weather.color ??
+        (weather.kind === 'embers' ? 'rgba(251, 146, 60, 0.72)' : 'rgba(250, 204, 21, 0.8)');
+      ctx.beginPath();
+      ctx.arc(x, y, weather.kind === 'sparks' ? 1.8 : 2.3, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (weather.kind === 'spores') {
+      const y =
+        ((randY * canvasH + Math.sin(time * 0.9 * spd + i) * 35) % canvasH + canvasH) % canvasH;
+      const x =
+        ((randX * canvasW + Math.cos(time * 0.8 * spd + i * 1.3) * 40) % canvasW + canvasW) %
+        canvasW;
+      ctx.fillStyle = weather.color ?? 'rgba(132, 204, 22, 0.45)';
+      ctx.beginPath();
+      ctx.arc(x, y, 2.4 + (i % 2), 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // ash or snow
+      const fall = weather.kind === 'snow' ? 58 : 34;
+      const y = ((randY * canvasH + time * fall * spd) % (canvasH + 10)) - 5;
+      const x =
+        ((randX * canvasW + Math.sin(time * 1.4 + i) * 18) % canvasW + canvasW) % canvasW;
+      ctx.fillStyle =
+        weather.color ??
+        (weather.kind === 'snow' ? 'rgba(226, 232, 240, 0.55)' : 'rgba(148, 163, 184, 0.42)');
+      ctx.beginPath();
+      ctx.arc(x, y, weather.kind === 'snow' ? 2.2 : 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawEnvironmentOverlay(
+  ctx: CanvasRenderingContext2D,
+  env: LevelEnvironmentConfig,
+  canvasW: number,
+  canvasH: number,
+  time: number
+) {
+  if (env.tintColor) {
+    const baseAlpha = env.tintAlpha ?? 0.14;
+    const pulse = env.tintPulseSpeed ? 0.7 + 0.3 * Math.sin(time * env.tintPulseSpeed) : 1;
+    ctx.save();
+    ctx.fillStyle = resolvePulseColor(env.tintColor, baseAlpha * pulse, '15, 23, 42');
+    ctx.fillRect(0, 0, canvasW, canvasH);
+    ctx.restore();
+  }
+
+  if (env.alertLevel === 'critical' || env.alertLevel === 'warning') {
+    const isCritical = env.alertLevel === 'critical';
+    const pulse = 0.45 + 0.55 * Math.sin(time * (isCritical ? 6.5 : 3.2));
+    const rgb = isCritical ? '239, 68, 68' : '245, 158, 11';
+    ctx.save();
+    ctx.strokeStyle = `rgba(${rgb}, ${(isCritical ? 0.55 : 0.35) * pulse})`;
+    ctx.lineWidth = isCritical ? 8 : 5;
+    ctx.strokeRect(2, 2, canvasW - 4, canvasH - 4);
     ctx.restore();
   }
 }
@@ -659,10 +1279,50 @@ function drawRadiusZone(
   fillStyle: string,
   strokeStyle: string,
   gridRows: number,
-  gridCols: number
+  gridCols: number,
+  zoneShape: 'box' | 'circle' | 'cross' = 'box'
 ) {
-  const { cellSize } = BOARD_LAYOUT;
+  const { cellSize, gateWidth, padTop } = BOARD_LAYOUT;
   const zones = DESIGN_CATALOG.zones;
+
+  ctx.save();
+  ctx.fillStyle = fillStyle;
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = zones.lineWidth ?? 2;
+  ctx.setLineDash(zones.dashPattern ?? [6, 4]);
+
+  if (zoneShape === 'circle') {
+    const cx = gateWidth + centerCol * cellSize + cellSize / 2;
+    const cy = padTop + centerRow * cellSize + cellSize / 2;
+    const pxRadius = (radius + 0.45) * cellSize;
+    ctx.beginPath();
+    ctx.arc(cx, cy, pxRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (zoneShape === 'cross') {
+    const minC = Math.max(0, centerCol - radius);
+    const maxC = Math.min(gridCols - 1, centerCol + radius);
+    const minR = Math.max(0, centerRow - radius);
+    const maxR = Math.min(gridRows - 1, centerRow + radius);
+    for (let c = minC; c <= maxC; c++) {
+      const { x, y } = cellToPx(centerRow, c);
+      ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+      ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+    }
+    for (let r = minR; r <= maxR; r++) {
+      if (r === centerRow) continue;
+      const { x, y } = cellToPx(r, centerCol);
+      ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+      ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+    }
+    ctx.restore();
+    return;
+  }
+
   const minR = Math.max(0, centerRow - radius);
   const maxR = Math.min(gridRows - 1, centerRow + radius);
   const minC = Math.max(0, centerCol - radius);
@@ -672,12 +1332,7 @@ function drawRadiusZone(
   const zoneW = (maxC - minC + 1) * cellSize;
   const zoneH = (maxR - minR + 1) * cellSize;
 
-  ctx.save();
-  ctx.fillStyle = fillStyle;
   ctx.fillRect(topLeft.x + 1, topLeft.y + 1, zoneW - 2, zoneH - 2);
-  ctx.strokeStyle = strokeStyle;
-  ctx.lineWidth = zones.lineWidth ?? 2;
-  ctx.setLineDash(zones.dashPattern ?? [6, 4]);
   ctx.strokeRect(topLeft.x + 2, topLeft.y + 2, zoneW - 4, zoneH - 4);
   ctx.restore();
 }
@@ -919,15 +1574,33 @@ function drawTower(ctx: CanvasRenderingContext2D, tower: Tower, time: number) {
 
   const ui = DESIGN_CATALOG.ui;
   const showHp = td.showHpBar ?? true;
+  const barW = td.hpBarWidth ?? ui.towerHpBarWidth ?? 48;
+  const barH = td.hpBarHeight ?? ui.towerHpBarHeight ?? 5;
+  const barOffY = td.hpBarOffsetY ?? ui.towerHpBarOffsetY ?? 6;
   if (showHp && tower.hp < tower.maxHp) {
-    const barW = td.hpBarWidth ?? ui.towerHpBarWidth ?? 48;
-    const barH = td.hpBarHeight ?? ui.towerHpBarHeight ?? 5;
-    const barOffY = td.hpBarOffsetY ?? ui.towerHpBarOffsetY ?? 6;
     const ratio = Math.max(0, tower.hp / tower.maxHp);
     ctx.fillStyle = ui.hpBarBg;
     ctx.fillRect(cx - barW / 2, y + barOffY, barW, barH);
     ctx.fillStyle = ratio > 0.5 ? ui.hpBarHigh : ratio > 0.25 ? ui.hpBarMid : ui.hpBarLow;
     ctx.fillRect(cx - barW / 2, y + barOffY, barW * ratio, barH);
+  }
+
+  if (tower.shieldHp && tower.shieldHp > 0) {
+    const shieldColor = tower.shieldColor ?? '#38BDF8';
+    ctx.save();
+    ctx.strokeStyle = shieldColor;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 27, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const shieldRatio = Math.min(1, tower.shieldHp / Math.max(100, tower.maxHp * 0.5));
+    ctx.fillStyle = ui.hpBarBg;
+    ctx.fillRect(cx - barW / 2, y + Math.max(1, barOffY - 4), barW, 3);
+    ctx.fillStyle = shieldColor;
+    ctx.fillRect(cx - barW / 2, y + Math.max(1, barOffY - 4), barW * shieldRatio, 3);
+    ctx.restore();
   }
 
   if (tower.customTintColor) {
@@ -1731,6 +2404,15 @@ function drawEnemy(
     ctx.fillRect(cx - barW / 2, topY + barOffY, barW, barH);
     ctx.fillStyle = ed.hpBar;
     ctx.fillRect(cx - barW / 2, topY + barOffY, barW * hpRatio, barH);
+
+    if (enemy.shieldHp && enemy.shieldHp > 0) {
+      const shieldColor = enemy.shieldColor ?? '#38BDF8';
+      const shieldRatio = Math.min(1, enemy.shieldHp / Math.max(100, enemy.maxHp * 0.4));
+      ctx.fillStyle = ui.hpBarBg;
+      ctx.fillRect(cx - barW / 2, topY + Math.max(1, barOffY - 4), barW, 3);
+      ctx.fillStyle = shieldColor;
+      ctx.fillRect(cx - barW / 2, topY + Math.max(1, barOffY - 4), barW * shieldRatio, 3);
+    }
   }
 
   if (ed.showCodeLabel ?? true) {
@@ -1748,6 +2430,8 @@ function drawEnemy(
 
   if ((enemy.stunTimer ?? 0) > 0) {
     drawTowerTag(ctx, cx, topY + BOARD_LAYOUT.cellSize - 11, 'ATURD.', '#38BDF8', '#BAE6FD');
+  } else if ((enemy.silenceTimer ?? 0) > 0) {
+    drawTowerTag(ctx, cx, topY + BOARD_LAYOUT.cellSize - 11, 'SILENC.', '#A855F7', '#E9D5FF');
   } else if (enemy.customBadge) {
     drawTowerTag(
       ctx,
@@ -2543,6 +3227,28 @@ function drawEffect(ctx: CanvasRenderingContext2D, fx: VisualEffect) {
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.stroke();
+  } else if (fx.kind === 'beam' && fx.targetRow !== undefined && fx.targetCol !== undefined) {
+    const tx = gateWidth + fx.targetCol * cellSize + cellSize / 2;
+    const ty = padTop + fx.targetRow * cellSize + cellSize / 2;
+    const beamColor = resolvePulseColor(fx.color, 1 - progress, '56, 189, 248');
+    ctx.globalAlpha = 1 - progress;
+    ctx.strokeStyle = beamColor;
+    ctx.shadowColor = beamColor;
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = (fx.lineWidth ?? 3) * (1 - progress * 0.4);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+  } else if (fx.kind === 'particle') {
+    const pColor = fx.color ?? '#F59E0B';
+    ctx.globalAlpha = 1 - progress;
+    ctx.fillStyle = /^\d+\s*,\s*\d+\s*,\s*\d+$/.test(pColor.trim())
+      ? `rgba(${pColor}, ${1 - progress})`
+      : pColor;
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(1, (fx.sizePx ?? 3.5) * (1 - progress * 0.5)), 0, Math.PI * 2);
+    ctx.fill();
   } else if (fx.kind === 'text' && fx.text) {
     ctx.globalAlpha = 1 - progress;
     ctx.fillStyle = fx.color || ef.floatingTextDefaultColor || '#F59E0B';
