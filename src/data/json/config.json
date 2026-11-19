@@ -1,0 +1,91 @@
+{
+  "app": {
+    "title": "Sitio-19",
+    "storageKey": "scp_td_completed_levels_v2",
+    "sectorBackdropImage": "/src/assets/images/SCPlogo.webp"
+  },
+  "grid": {
+    "rows": 6,
+    "cols": 9
+  },
+  "boardLayout": {
+    "gateWidth": 58,
+    "breachMargin": 28,
+    "padTop": 14,
+    "padBottom": 14,
+    "cellSize": 92
+  },
+  "progression": {
+    "autoDeckMaxLevel": 6,
+    "defaultStarterDeck": ["researcher", "guard"],
+    "defaultDeckPriority": [
+      "researcher",
+      "guard",
+      "barricade",
+      "medic",
+      "cryo",
+      "mine",
+      "radio",
+      "sniper",
+      "heavy_gunner",
+      "grenadier",
+      "psionic",
+      "engineer",
+      "mtf",
+      "shotgunner",
+      "pyro",
+      "turret",
+      "tesla_coil",
+      "bunker",
+      "laser_trap",
+      "generator"
+    ],
+    "sectors": [
+      { "id": 1, "label": "Sector I (1–10)", "start": 1, "end": 10 }
+    ]
+  },
+  "gameplay": {
+    "energyDropAmount": 50,
+    "initialSkyEnergyDelaySec": 10,
+    "skyEnergyIntervalMinSec": 6.5,
+    "skyEnergyIntervalVarianceSec": 2.0,
+    "skyEnergyColMin": 1,
+    "skyEnergyColSpan": 6,
+    "energyDropLifetimeSec": 12,
+    "energyDropCollectRadiusPx": 34,
+    "removeRefundRatio": 0.25,
+    "announcementDurationSec": 5.0,
+    "flagBannerDurationSec": 4.5,
+    "defaultFlagBanner": "¡Se aproxima una GRAN HORDA de SCP!",
+    "projectileSpeeds": {
+      "standard": 6.4,
+      "mtf": 6.4,
+      "cryo": 6.4,
+      "pyro": 6.4,
+      "psionic": 6.4,
+      "grenade": 5.2,
+      "turret": 7.4,
+      "shotgun": 7.8,
+      "heavy": 8.0,
+      "sniper": 9.6
+    },
+    "doors079": {
+      "minCol": 4,
+      "toggleMinSec": 2.2,
+      "toggleVarianceSec": 2.8
+    },
+    "teslaGate": {
+      "firingDurationSec": 0.75,
+      "sweepSpeedColsPerSec": 15
+    }
+  },
+  "trackUi": {
+    "nodeSpacing": 148,
+    "trackHeight": 246,
+    "waveAmplitude": 44
+  },
+  "admin": {
+    "secret": "",
+    "quickJumpLevels": [1, 10, 15, 20, 30, 40, 50, 60, 75, 80, 90, 100]
+  }
+}

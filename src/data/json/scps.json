@@ -1,0 +1,374 @@
+[
+  {
+    "type": "scp_008",
+    "code": "SCP-008",
+    "name": "Plaga Zombi",
+    "classification": "Euclid",
+    "hp": 200,
+    "speed": 0.4,
+    "dps": 20,
+    "scoreValue": 25,
+    "portrait": "src/assets/images/scp-008.png",
+    "summary": "Zombi básico, proviene del scp 008, un patogeno infeccioso que convierte a sus huespedes en muertos vivientes a traves del paro cardiaco",
+    "tacticalNote": "Como es basico, es facil, no necesita estrategia técnica",
+    "effects": ["resurrection_049"],
+    "behavior": {
+      "laneSpan": 1
+    }
+  },
+  {
+    "type": "scp_966",
+    "code": "SCP-966",
+    "name": "El Asesino del Sueño",
+    "classification": "Euclid · Supresor 3x3",
+    "hp": 190,
+    "speed": 0.24,
+    "dps": 20,
+    "scoreValue": 60,
+    "portrait": "/src/assets/images/SCP-966.png",
+    "summary": "Incapacita todas las torres en un rango de 3x3 a su alrededor: no atacan ni sus defensas funcionan.",
+    "tacticalNote": "Elimínalo a distancia con tiradores colocados fuera de su aura violeta de 3x3.",
+    "effects": ["sleep_3x3"],
+    "announcement": "SCP-966 activo: desactiva torres y defensas en 3x3.",
+    "behavior": {
+      "laneSpan": 1,
+      "sleepAura": {
+        "effectId": "sleep_3x3"
+      }
+    }
+  },
+  {
+    "type": "scp_939",
+    "code": "SCP-939",
+    "name": "Con Muchas Voces",
+    "classification": "Keter · Manada de 3",
+    "hp": 225,
+    "speed": 0.33,
+    "dps": 40,
+    "scoreValue": 55,
+    "portrait": "/src/assets/images/939.jpg",
+    "summary": "Mayor salud y daño que SCP-008. Siempre irrumpen en grupos coordinados de 3 por el mapa.",
+    "tacticalNote": "Refuerza varios carriles a la vez con Barricadas, Escopeteros y Agentes Criogénicos.",
+    "effects": [],
+    "announcement": "Grupo de 3 SCP-939 ingresando al sector.",
+    "behavior": {
+      "laneSpan": 1,
+      "defaultPackCount": 3
+    }
+  },
+  {
+    "type": "scp_173",
+    "code": "SCP-173",
+    "name": "La Escultura",
+    "classification": "Euclid · Salto por Parpadeo",
+    "hp": 540,
+    "speed": 0,
+    "dps": 135,
+    "scoreValue": 120,
+    "portrait": "/src/assets/images/SCP-173.webp",
+    "summary": "Salta 2 casillas cada 4s con daño masivo. La pantalla parpadea cada 2s. Si SCP-106 está en su fila, se mueve cada 5s por la paranoia.",
+    "tacticalNote": "El Agente Criogénico reduce su salto a 1 casilla; remátalo con Tiradores MTF o Minas.",
+    "effects": ["blink_173"],
+    "announcement": "SCP-173 en el tablero: parpadeo cada 2s y salto de 2 casillas cada 4s.",
+    "behavior": {
+      "laneSpan": 1,
+      "blinkJump": {
+        "effectId": "blink_173",
+        "paranoiaPartner": "scp_106",
+        "paranoiaIntervalSec": 5.0,
+        "paranoiaCells": 1
+      }
+    }
+  },
+  {
+    "type": "scp_049",
+    "code": "SCP-049",
+    "name": "El Médico de la Plaga",
+    "classification": "Euclid · Reanimador",
+    "hp": 310,
+    "speed": 0.22,
+    "dps": 30,
+    "scoreValue": 95,
+    "portrait": "/src/assets/images/SCP-049.png",
+    "summary": "Los SCP-008 obtienen +20% velocidad y otra vida. Si mata una torre, la convierte en un SCP-049-2.",
+    "tacticalNote": "Elimínalo rápido antes de que alcance tus líneas defensivas y genere SCP-049-2.",
+    "effects": ["resurrection_049"],
+    "announcement": "SCP-049 presente: potencia a 008 y convierte torres caídas en SCP-049-2.",
+    "behavior": {
+      "laneSpan": 1,
+      "plagueAura": {
+        "effectId": "resurrection_049",
+        "buffTarget": "scp_008",
+        "convertType": "scp_049_2"
+      }
+    }
+  },
+  {
+    "type": "scp_049_2",
+    "code": "SCP-049-2",
+    "name": "Instancia Curada",
+    "classification": "Euclid · Convertido por 049",
+    "hp": 175,
+    "speed": 0.27,
+    "dps": 28,
+    "scoreValue": 35,
+    "portrait": "/src/assets/images/Scp_0492.webp",
+    "summary": "Creado cuando SCP-049 elimina una torre. Igual que SCP-008, pero con 25% más de vida y daño.",
+    "tacticalNote": "Evita que SCP-049 llegue cuerpo a cuerpo a tus estructuras o personal.",
+    "effects": [],
+    "isSummon": true,
+    "behavior": {
+      "laneSpan": 1
+    }
+  },
+  {
+    "type": "scp_035",
+    "code": "SCP-035",
+    "name": "La Máscara Posesiva",
+    "classification": "Keter · Hipnosis Global",
+    "hp": 270,
+    "speed": 0.23,
+    "dps": 28,
+    "scoreValue": 100,
+    "portrait": "/src/assets/images/scp-035.webp",
+    "summary": "Hipnotiza a las torres ofensivas para que no ataquen, excepto si usan la Torre de Radio en 3x3.",
+    "tacticalNote": "Coloca Torres de Radio cubriendo a tus tiradores en bloques de 3x3.",
+    "effects": ["hypnosis", "radio_3x3"],
+    "announcement": "SCP-035 activo: hipnotiza torres salvo dentro de una Radio (3x3).",
+    "behavior": {
+      "laneSpan": 1,
+      "hypnosisGlobal": {
+        "effectId": "hypnosis"
+      }
+    }
+  },
+  {
+    "type": "scp_012",
+    "code": "SCP-012",
+    "name": "Mala Composición",
+    "classification": "Euclid · Caída del Cielo",
+    "hp": 360,
+    "speed": 0,
+    "dps": 0,
+    "scoreValue": 105,
+    "portrait": "/src/assets/images/scp-012.jpg",
+    "summary": "Cae del cielo al tablero y acerca 1 casilla cada 5s al personal más cercano de su línea. Si llega a su casilla, lo mata y se cura un 20%.",
+    "tacticalNote": "Destrúyelo rápido con estructuras o tiradores traseros antes de que atraiga a tu personal.",
+    "effects": ["lure_012"],
+    "announcement": "SCP-012 cae del cielo: atrae al personal más cercano cada 5s.",
+    "behavior": {
+      "laneSpan": 1,
+      "spawnRule": {
+        "mode": "sky",
+        "colRange": [5.2, 7.4]
+      },
+      "skyPull": {
+        "effectId": "lure_012"
+      }
+    }
+  },
+  {
+    "type": "scp_096",
+    "code": "SCP-096",
+    "name": "El Tímido",
+    "classification": "Euclid · Furia Letal",
+    "hp": 1150,
+    "speed": 0.2,
+    "dps": 22,
+    "scoreValue": 150,
+    "portrait": "/src/assets/images/096.webp",
+    "summary": "Gran salud inicial. En la segunda casilla convulsiona y grita aturdiendo torres; luego corre veloz con la vida de un SCP-008 (140) pero daño letal.",
+    "tacticalNote": "Resiste su embestida furiosa con Barricadas, Búnkeres o Minas mientras tus torres recuperan el control.",
+    "effects": ["scream_096"],
+    "announcement": "SCP-096 detectado: convulsiona en la segunda casilla y embiste a gran velocidad.",
+    "behavior": {
+      "laneSpan": 1,
+      "enrage096": {
+        "triggerCol": 7.45,
+        "convulseSec": 2.4,
+        "enragedHpFrom": "scp_008",
+        "enragedSpeed": 1.65,
+        "enragedDps": 180,
+        "stunRadiusRow": 1,
+        "stunRadiusCol": 3.5,
+        "effectId": "scream_096"
+      }
+    }
+  },
+  {
+    "type": "scp_019",
+    "code": "SCP-019",
+    "name": "El Jarrón de Monstruos",
+    "classification": "Keter · Generador",
+    "hp": 800,
+    "speed": 0,
+    "dps": 0,
+    "scoreValue": 130,
+    "portrait": "/src/assets/images/scp-019.jpg",
+    "summary": "Jarrón de 800 de vida que aparece en el mapa y libera un rápido SCP-019-2 cada 3 segundos.",
+    "tacticalNote": "Concentra fuego perforante o Artilleros Pesados para romper el jarrón cuanto antes.",
+    "effects": ["vase_019"],
+    "announcement": "Jarrón SCP-019 desplegado: genera un SCP-019-2 rápido cada 3 segundos.",
+    "behavior": {
+      "laneSpan": 1,
+      "spawnRule": {
+        "mode": "edge",
+        "colRange": [7.35, 8.25]
+      },
+      "vaseSpawner": {
+        "spawnType": "scp_019_2",
+        "effectId": "vase_019"
+      }
+    }
+  },
+  {
+    "type": "scp_019_2",
+    "code": "SCP-019-2",
+    "name": "Engendro del Jarrón",
+    "classification": "Keter · Enjambre Rápido",
+    "hp": 75,
+    "speed": 0.68,
+    "dps": 18,
+    "scoreValue": 20,
+    "portrait": "/src/assets/images/scp-019-2.jpg",
+    "summary": "Emerge cada 3 segundos de SCP-019. Tiene menos salud que un SCP-008, pero corre mucho más rápido.",
+    "tacticalNote": "Granaderos, Rejillas Láser y Bobinas Tesla limpian rápido estos enjambres.",
+    "effects": [],
+    "isSummon": true,
+    "behavior": {
+      "laneSpan": 1
+    }
+  },
+  {
+    "type": "scp_066",
+    "code": "SCP-066",
+    "name": "Juguete de Eric",
+    "classification": "Euclid · Grito 5x5",
+    "hp": 600,
+    "speed": 0.17,
+    "dps": 24,
+    "scoreValue": 140,
+    "portrait": "/src/assets/images/SCP-066.png",
+    "summary": "Se mueve lento con 600 de vida. Cada 10s su grito inhabilita torres en 5x5 durante 6 segundos (solo 3s si están protegidas por Radio).",
+    "tacticalNote": "Cubre tu defensa con Torres de Radio para reducir el ensordecimiento a 3s y frénalo con Criogénico o Psiónico.",
+    "effects": ["scream_066", "radio_3x3"],
+    "announcement": "SCP-066 activo: su grito cada 10s inhabilita 5x5 por 6s (3s con Radio).",
+    "behavior": {
+      "laneSpan": 1,
+      "screamArea": {
+        "effectId": "scream_066"
+      }
+    }
+  },
+  {
+    "type": "scp_106",
+    "code": "SCP-106",
+    "name": "El Anciano",
+    "classification": "Keter · Instakill / Dimensión",
+    "hp": 800,
+    "speed": 0.11,
+    "dps": 9999,
+    "scoreValue": 185,
+    "portrait": "/src/assets/images/106.jpg",
+    "summary": "800 de vida, movimiento muy lento y muerte instantánea al contacto. Un Personal tiene 10% de volver tras 5–10s con 20% de vida e inmunidad psicológica (966/035). Ralentiza a SCP-173 en su fila a 1 salto cada 5s.",
+    "tacticalNote": "Detén su avance con Minas, Tiradores MTF y Especialistas Psiónicos antes de que toque tus defensas.",
+    "effects": ["pocket_106"],
+    "announcement": "SCP-106 activo: muerte instantánea al contacto y ralentiza a SCP-173 en su fila.",
+    "behavior": {
+      "laneSpan": 1,
+      "instakillTower": true,
+      "pocketDimension": {
+        "effectId": "pocket_106"
+      }
+    }
+  },
+  {
+    "type": "scp_079",
+    "code": "SCP-079",
+    "name": "La Vieja IA",
+    "classification": "Euclid · Control de Puertas",
+    "hp": 1500,
+    "speed": 0,
+    "dps": 0,
+    "scoreValue": 240,
+    "portrait": "/src/assets/images/Scp_079.webp",
+    "summary": "Aparece del cielo (máximo 1 por nivel) con 1500 de vida y despliega 5 puertas entre columnas 5 a 9 que abren y cierran bloqueando disparos. Bajo 25% de vida abre 2 puertas más (7).",
+    "tacticalNote": "Aprovecha las ventanas abiertas y ataques de Bobina Tesla o Artilleros para destruir el núcleo.",
+    "effects": ["doors_079"],
+    "announcement": "SCP-079 cae del cielo: desplegará 5 puertas entre columnas 5 a 9.",
+    "behavior": {
+      "laneSpan": 1,
+      "spawnRule": {
+        "mode": "sky",
+        "colRange": [6.4, 7.8],
+        "maxPerLevel": 1
+      },
+      "doorController": {
+        "effectId": "doors_079",
+        "triggerHpRatio": 0.25
+      }
+    }
+  },
+  {
+    "type": "scp_018",
+    "code": "SCP-018",
+    "name": "Súper Pelota",
+    "classification": "Euclid · Rebote Instakill",
+    "hp": 50,
+    "speed": 0.35,
+    "dps": 9999,
+    "scoreValue": 115,
+    "portrait": "/src/assets/images/scp-018.jpg",
+    "summary": "Bola de 50 de vida que rebota en su carril acelerando cada vez más. Al golpear con una torre la destruye al instante y desaparece.",
+    "tacticalNote": "Derríbala rápido con fuego directo o sacrifícale una unidad económica antes de que alcance tu retaguardia.",
+    "effects": ["bounce_018"],
+    "announcement": "¡SCP-018 rebotando! Acelera sin parar e instakill al chocar con una torre.",
+    "behavior": {
+      "laneSpan": 1,
+      "instakillTower": true,
+      "disappearOnHit": true,
+      "bounceAccel": {
+        "accelPerSec": 0.28,
+        "maxSpeed": 3.4
+      }
+    }
+  },
+  {
+    "type": "scp_058",
+    "code": "SCP-058",
+    "name": "Corazón de las Tinieblas",
+    "classification": "Keter · Veloz e Inmune",
+    "hp": 70,
+    "speed": 1.35,
+    "dps": 32,
+    "scoreValue": 125,
+    "portrait": "/src/assets/images/Scp_058.webp",
+    "summary": "Tiene 70 de vida pero se mueve muy rápido por el carril y no le afecta ningún efecto de ralentización, hielo o fuego.",
+    "tacticalNote": "El Agente Criogénico y el Fuego no lo frenan; detén su carrera con daño directo, Escopeteros o Barricadas.",
+    "effects": ["immunity_058"],
+    "announcement": "SCP-058 irrumpe a toda velocidad: inmune a congelación, fuego y efectos.",
+    "behavior": {
+      "laneSpan": 1,
+      "immunities": ["all_effects"]
+    }
+  },
+  {
+    "type": "scp_682",
+    "code": "SCP-682",
+    "name": "El Reptil Indestructible",
+    "classification": "Keter · Coloso 2 Líneas",
+    "hp": 3000,
+    "speed": 0.065,
+    "dps": 220,
+    "scoreValue": 650,
+    "portrait": "/src/assets/images/682.webp",
+    "summary": "3000 de vida, movimiento extremadamente lento, daño brutal e inmune a explosiones (Minas y Granaderos). Ocupa 2 líneas simultáneas [x1, x2].",
+    "tacticalNote": "Las Minas y Granadas no le hacen daño. Concentra fuego de dos carriles con Tiradores MTF, Artilleros, Fuego y Torreta.",
+    "effects": ["juggernaut_682"],
+    "announcement": "¡ALERTA KETER! SCP-682 ingresa ocupando 2 líneas. Inmune a explosiones.",
+    "behavior": {
+      "laneSpan": 2,
+      "immunities": ["explosion"]
+    }
+  }
+]
